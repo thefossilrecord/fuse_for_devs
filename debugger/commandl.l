@@ -45,7 +45,7 @@
 
 %}
 
-ID	[a-z]([a-z0-9']|\\[ ])*
+ID	[a-z_]([a-z0-9'_]|\\[ ])*
 
 %option caseless noyywrap
 

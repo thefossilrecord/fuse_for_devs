@@ -63,6 +63,7 @@ debugger_init( void *context )
   debugger_event_init();
   debugger_system_variable_init();
   debugger_variable_init();
+  debugger_sjasmplus_sym_init();
   debugger_reset();
 
   return 0;

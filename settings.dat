@@ -298,6 +298,7 @@ disk_try_merge, string, NULL
 disk_ask_merge, boolean, 1
 
 debugger_command, string, NULL
+debugger_sym_file, string, NULL,, sym-file
 
 teletext_addr_1, string, "127.0.0.1"
 teletext_addr_2, string, "127.0.0.1"

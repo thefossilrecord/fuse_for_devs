@@ -29,6 +29,7 @@ fuse_SOURCES += \
                 debugger/disassemble.c \
                 debugger/event.c \
                 debugger/expression.c \
+                debugger/sjasmplus.c \
                 debugger/system_variable.c \
                 debugger/variable.c
 
