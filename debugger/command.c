@@ -36,6 +36,86 @@
 #include "z80/z80.h"
 #include "z80/z80_macros.h"
 
+#define PASS_SIZING 0
+#define PASS_REPLACING PASS_SIZING + 1
+#define MAX_PASS PASS_REPLACING + 1
+
+char *
+debugger_process_evaluate_dollars( const char *command )
+{
+  int pass = PASS_SIZING;
+  int replacements = 0, replacement_offset = 0;
+  char *evaluated = NULL;
+
+  /* PASS_SIZING works out if we need to do anything and calculates sizes.
+  PASS_REPLACING replaces any $ characters with 0x. */
+  while(pass < MAX_PASS)
+  {
+    char *dollar = strchr(command, 0x24);
+    while(dollar)
+    {
+      int matched = 0;
+      char *check = dollar + 1;
+      while(*check && *check!=0x20)
+      {
+        if((*check >= 0x30 && *check <=0x39) ||
+          (*check >= 0x41 && *check <=0x46) ||
+          (*check >= 0x61 && *check <=0x66))
+            matched++;
+        else
+          {
+            matched = 0;
+            break;
+          }
+        check++;
+      }
+      if(matched && matched <= 4)
+      {
+        if(pass==PASS_REPLACING)
+        {
+          size_t source_offset = (dollar - command);
+          size_t destination_offset = source_offset + replacement_offset;
+
+          /* Set $ to 0. */
+          char *replace = &evaluated[destination_offset];
+          *replace = 0x30; // 0
+          size_t remaining = strlen(replace + 1);
+          /* Move the following characters up by one. */
+          memmove(replace + 2, replace + 1, remaining);
+          replacement_offset++;
+          replace++;
+          /* Put x in the gap we just made. */
+          *replace = 0x78; // x
+        }
+        replacements++;
+      }
+    dollar = strchr(dollar + 1, 0x24);
+    }
+
+    if(pass==PASS_SIZING)
+    {
+      if(replacements)
+      {
+      /* Allocate a string with enough space to hold the replaced $
+      characters. */
+      size_t alloc = strlen(command);
+      evaluated = (char *)malloc(alloc + replacements);
+      memset(evaluated, 0, alloc + replacements);
+      memcpy(evaluated, command, alloc);
+      }
+    else
+      /* Nothing to replace. */
+      return evaluated;
+    }
+
+  pass++;
+  }
+
+
+  return evaluated;
+}
+
+
 /* The last debugger command we were given to execute */
 static char *command_buffer = NULL;
 
@@ -52,7 +132,15 @@ debugger_command_evaluate( const char *command )
 
   if( command_buffer ) libspectrum_free( command_buffer );
 
-  command_buffer = utils_safe_strdup( command );
+  /* See if we need to replace any $xxxx hex numbers with 0x. */
+  char *evaluated = debugger_process_evaluate_dollars(command);
+  if(evaluated)
+  {
+    command_buffer = utils_safe_strdup( evaluated );
+    free( evaluated );
+  }
+  else
+    command_buffer = utils_safe_strdup( command );
 
   /* Start parsing at the start of the given command */
   command_ptr = command_buffer;
