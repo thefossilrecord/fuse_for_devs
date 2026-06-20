@@ -154,9 +154,17 @@ Machine/_Pause..., Item, Pause
 #endif
 
 Machine/_Reset..., Item, F5,,, 0
+#ifdef UI_GTK
+Machine/_Hard reset..., Item, <Shift><Control>F5, menu_machine_reset,, 1
+#else
 Machine/_Hard reset..., Item,, menu_machine_reset,, 1
+#endif
 Machine/_Select..., Item, F9,, menu_machine_detail
+#ifdef UI_GTK
+Machine/_Debugger..., Item, Escape
+#else
 Machine/_Debugger..., Item
+#endif
 Machine/P_oke Finder..., Item
 Machine/Po_ke Memory..., Item
 Machine/_Memory Browser..., Item
@@ -165,7 +173,12 @@ Machine/Pro_filer, Branch
 Machine/Profiler/_Start, Item
 Machine/Profiler/_Stop, Item
 
+#ifdef UI_GTK
+Machine/_NMI, Item, <Shift>F5
+#else
 Machine/_NMI, Item
+#endif
+
 Machine/Multiface Red _Button, Item
 Machine/Didaktik SNA_P, Item
 
