@@ -131,6 +131,7 @@ static void create_events( GtkBox *parent );
 static void events_activate( GtkTreeView *tree_view, GtkTreePath *path,
 			     GtkTreeViewColumn *column, gpointer user_data );
 static int create_command_entry( GtkBox *parent, GtkAccelGroup *accel_group );
+static int create_memory_label( GtkBox *parent, PangoFontDescription *font);
 static int create_buttons( GtkDialog *parent, GtkAccelGroup *accel_group );
 
 static int activate_debugger( void );
@@ -170,7 +171,9 @@ static GtkWidget *dialog,		/* The debugger dialog box */
   *disassembly_box,			/* A box to hold the disassembly */
   *disassembly,				/* The actual disassembly widget */
   *stack,				/* The stack display */
-  *events;				/* The events display */
+  *events,				/* The events display */
+  *memory,				/* Memory dump */
+  *entry;				/* Command entry */
 
 static GtkListStore *breakpoints_model, *disassembly_model, *stack_model,
   *events_model;
@@ -188,6 +191,8 @@ static int dialog_created = 0;
 
 /* Is the debugger window active (as opposed to the debugger itself)? */
 static int debugger_active;
+
+static libspectrum_word memory_address = 0;
 
 /* The UIManager used to create the menu bar */
 static GtkUIManager *ui_manager_debugger = NULL;
@@ -250,6 +255,10 @@ ui_debugger_activate( void )
 
   gtk_widget_set_sensitive( continue_button, 1 );
   gtk_widget_set_sensitive( break_button, 0 );
+  /* Put focus into command entry and collapse the selection */
+  gtk_widget_grab_focus(GTK_WIDGET(entry));
+  gtk_editable_set_position(GTK_EDITABLE(entry), -1);
+
   if( !debugger_active ) activate_debugger();
 
   return 0;
@@ -391,6 +400,7 @@ create_dialog( void )
   create_disassembly( GTK_BOX( hbox ), font );
   create_stack_display( GTK_BOX( hbox ), font );
   create_events( GTK_BOX( hbox ) );
+  create_memory_label( GTK_BOX( content_area ), font);
 
   error = create_command_entry( GTK_BOX( content_area ), accel_group );
   if( error ) return error;
@@ -596,7 +606,7 @@ create_disassembly( GtkBox *parent, PangoFontDescription *font )
   for( i = 0; i < DISASSEMBLY_COLUMN_COUNT; i++ ) {
     GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
     GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes( titles[i], renderer, "text", i, NULL );
-    g_object_set( G_OBJECT( renderer ), "font-desc", font, "height", 18, NULL );
+    g_object_set( G_OBJECT( renderer ), "font-desc", font, "height", 20, NULL );
     gtk_tree_view_append_column( GTK_TREE_VIEW( disassembly ), column );
   }
 
@@ -718,9 +728,31 @@ events_activate( GtkTreeView *tree_view, GtkTreePath *path,
 }
 
 static int
+create_memory_label( GtkBox *parent, PangoFontDescription *font)
+{
+  GtkWidget *hbox;
+
+  /* An hbox to hold the command entry widget and the 'evaluate' button */
+  hbox = gtk_box_new( GTK_ORIENTATION_HORIZONTAL, 5 );
+  gtk_box_pack_start( parent, hbox, FALSE, FALSE, 0 );
+
+  /* The command entry widget */
+  memory = gtk_label_new(NULL);
+
+  //g_object_set( G_OBJECT(memory), "font-desc", font, "height", 18, NULL );
+  gtk_widget_modify_font(memory, font);
+  gtk_widget_set_halign(memory, GTK_ALIGN_START);
+  gtk_box_pack_start( GTK_BOX( hbox ), memory, TRUE, TRUE, 0 );
+
+  memory_address = PC;
+
+  return 0;
+}
+
+static int
 create_command_entry( GtkBox *parent, GtkAccelGroup *accel_group )
 {
-  GtkWidget *hbox, *entry, *eval_button;
+  GtkWidget *hbox, *eval_button;
 
   /* An hbox to hold the command entry widget and the 'evaluate' button */
   hbox = gtk_box_new( GTK_ORIENTATION_HORIZONTAL, 5 );
@@ -772,6 +804,7 @@ activate_debugger( void )
   debugger_active = 1;
 
   ui_debugger_disassemble( PC );
+  ui_debugger_memory( memory_address );
   ui_debugger_update();
 
   gtk_main();
@@ -1091,6 +1124,46 @@ deactivate_debugger( void )
   gtk_main_quit();
   debugger_active = 0;
   fuse_emulation_unpause();
+  return 0;
+}
+
+#define MEMORY_LINES 4
+#define MEMORY_LINE_LENGTH 128
+#define MEMORY_BYTE_LENGTH 16
+#define HEX_CODE_LENGTH 4
+/* Set the memory view to start at 'address' */
+int
+ui_debugger_memory( libspectrum_word address )
+{
+  libspectrum_word dump = address;
+  char characters[MEMORY_BYTE_LENGTH + 1] = {0};
+  char hexcodes[MEMORY_BYTE_LENGTH * HEX_CODE_LENGTH] = {0};
+  char memory_lines[MEMORY_LINES * MEMORY_LINE_LENGTH] = {0};
+  char *line = &memory_lines[0];
+  for(int line_index = 0; line_index < MEMORY_LINES; line_index++)
+  {
+    char *hex = &hexcodes[0];
+    int address_start = dump;
+    for(int byte = 0; byte < MEMORY_BYTE_LENGTH; byte++)
+    {
+      libspectrum_byte b = readbyte_internal(dump);
+      snprintf(hex, HEX_CODE_LENGTH, "%02X ", b);
+      hex = hex + (HEX_CODE_LENGTH - 1);
+      characters[byte] =  (b >= 32 && b < 127 ) ? b : '.';
+      dump++;
+      if(dump > 65535)
+        address = 0;
+    }
+    snprintf(line, MEMORY_LINE_LENGTH, format_16_bit(), address_start);
+    line = line + strlen(line);
+    snprintf(line, MEMORY_LINE_LENGTH, " %s %s\n", hexcodes, characters);
+    line = line + strlen(line);
+  }
+
+  gtk_label_set_text(GTK_LABEL(memory), (const gchar *)&memory_lines);
+  //printf("0x%04x: %s %s\n", address, hexcodes, characters);
+  memory_address = address;
+
   return 0;
 }
 

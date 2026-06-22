@@ -68,6 +68,7 @@ ex|exi|exit { return EXIT; }
 fi|fin|fini|finis|finish { return FINISH; }
 if { return IF; }
 ig|ign|igno|ignor|ignore { return DEBUGGER_IGNORE; }
+m|me|mem|memory { return MEMORY; }
 n|ne|nex|next { return NEXT; }
 o|ou|out { return DEBUGGER_OUT; }	/* Different name to avoid clashing
 					   with OUT from z80/z80_macros.h */

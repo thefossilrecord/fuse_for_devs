@@ -88,6 +88,7 @@
 %token		 FINISH
 %token		 IF
 %token		 DEBUGGER_IGNORE
+%token		 MEMORY
 %token		 NEXT
 %token		 DEBUGGER_OUT
 %token		 PORT
@@ -185,6 +186,7 @@ command:   BASE number { debugger_output_base = $2; }
 	 | DEBUGGER_IGNORE NUMBER number {
 	     debugger_breakpoint_ignore( $2, $3 );
 	   }
+	 | MEMORY number { ui_debugger_memory( $2 ); }
 	 | NEXT	    { debugger_next(); }
 	 | DEBUGGER_OUT number NUMBER { debugger_port_write( $2, $3 ); }
 	 | DEBUGGER_PRINT number { printf( "0x%x\n", $2 ); }
