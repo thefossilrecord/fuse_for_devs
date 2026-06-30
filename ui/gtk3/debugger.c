@@ -35,6 +35,7 @@
 
 #include "libspectrum.h"
 
+#include "completion.h"
 #include "debugger/debugger.h"
 #include "event.h"
 #include "fuse.h"
@@ -774,6 +775,8 @@ create_command_entry( GtkBox *parent, GtkAccelGroup *accel_group )
   /* Return is equivalent to clicking on 'evaluate' */
   gtk_widget_add_accelerator( eval_button, "clicked", accel_group,
 			      GDK_KEY_Return, 0, 0 );
+
+  add_completion_to_entry(entry);
 
   return 0;
 }

@@ -51,6 +51,7 @@ CLEANFILES += $(ui_gtk_built)
 ui_gtk_files = \
                ui/gtk3/binary.c \
                ui/gtk3/browse.c \
+               ui/gtk3/completion.c \
                ui/gtk3/confirm.c \
                ui/gtk3/debugger.c \
                ui/gtk3/fileselector.c \
