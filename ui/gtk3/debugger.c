@@ -139,6 +139,7 @@ static int activate_debugger( void );
 static void update_memory_map( void );
 static void update_breakpoints( void );
 static void update_disassembly( void );
+static void update_memory( void );
 static void update_events( void );
 static void add_event( gpointer data, gpointer user_data );
 static int deactivate_debugger( void );
@@ -806,6 +807,7 @@ activate_debugger( void )
 {
   debugger_active = 1;
 
+  reset_auto_complete();
   ui_debugger_disassemble( PC );
   ui_debugger_memory( memory_address );
   ui_debugger_update();
@@ -915,6 +917,7 @@ ui_debugger_update( void )
   update_memory_map();
   update_breakpoints();
   update_disassembly();
+  update_memory();
 
   /* And the stack display */
   gtk_list_store_clear( stack_model );
@@ -1134,11 +1137,11 @@ deactivate_debugger( void )
 #define MEMORY_LINE_LENGTH 128
 #define MEMORY_BYTE_LENGTH 16
 #define HEX_CODE_LENGTH 4
-/* Set the memory view to start at 'address' */
-int
-ui_debugger_memory( libspectrum_word address )
+
+void
+update_memory()
 {
-  libspectrum_word dump = address;
+  libspectrum_word dump = memory_address;
   char characters[MEMORY_BYTE_LENGTH + 1] = {0};
   char hexcodes[MEMORY_BYTE_LENGTH * HEX_CODE_LENGTH] = {0};
   char memory_lines[MEMORY_LINES * MEMORY_LINE_LENGTH] = {0};
@@ -1155,7 +1158,7 @@ ui_debugger_memory( libspectrum_word address )
       characters[byte] =  (b >= 32 && b < 127 ) ? b : '.';
       dump++;
       if(dump > 65535)
-        address = 0;
+        dump = 0;
     }
     snprintf(line, MEMORY_LINE_LENGTH, format_16_bit(), address_start);
     line = line + strlen(line);
@@ -1165,7 +1168,15 @@ ui_debugger_memory( libspectrum_word address )
 
   gtk_label_set_text(GTK_LABEL(memory), (const gchar *)&memory_lines);
   //printf("0x%04x: %s %s\n", address, hexcodes, characters);
+}
+
+/* Set the memory view to start at 'address' */
+int
+ui_debugger_memory( libspectrum_word address )
+{
   memory_address = address;
+  if( debugger_active )
+    update_memory();
 
   return 0;
 }
@@ -1384,6 +1395,7 @@ disassembly_wheel_scroll( GtkTreeView *list GCC_UNUSED, GdkEvent *event,
 static void
 evaluate_command( GtkWidget *widget, gpointer user_data GCC_UNUSED )
 {
+  reset_auto_complete();
   debugger_command_evaluate( gtk_entry_get_text( GTK_ENTRY( widget ) ) );
 }
 

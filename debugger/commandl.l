@@ -73,6 +73,7 @@ n|ne|nex|next { return NEXT; }
 o|ou|out { return DEBUGGER_OUT; }	/* Different name to avoid clashing
 					   with OUT from z80/z80_macros.h */
 p|po|por|port { return PORT; }
+pk|poke { return POKE; }
 pr|pri|prin|print { return DEBUGGER_PRINT; }
 re|rea|read { return READ; }
 se|set { return SET; }

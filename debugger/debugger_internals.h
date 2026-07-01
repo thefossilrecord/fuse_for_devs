@@ -46,6 +46,7 @@ int debugger_breakpoint_set_commands( size_t id, const char *commands );
 int debugger_breakpoint_trigger( debugger_breakpoint *bp );
 
 int debugger_poke( libspectrum_word address, libspectrum_byte value );
+int debugger_poke2( libspectrum_word address, libspectrum_word value );
 int debugger_port_write( libspectrum_word address, libspectrum_byte value );
 
 /* Utility functions called by the flex scanner */

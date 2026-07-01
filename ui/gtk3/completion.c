@@ -1,5 +1,28 @@
+/* completion.c: auto complete for debugger text entry
+   Copyright (c) 2026 bob_fossil
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License along
+   with this program; if not, write to the Free Software Foundation, Inc.,
+   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+   Author contact information:
+
+*/
+
+#define _GNU_SOURCE
 
 #include <gtk/gtk.h>
+#include <string.h>
 
 #include "settings.h"
 
@@ -8,6 +31,14 @@
 gboolean in_auto_complete = FALSE;
 gint auto_complete_caret_start = -1;
 gint auto_complete_typed_length = -1;
+
+void
+reset_auto_complete()
+{
+  in_auto_complete = FALSE;
+  auto_complete_caret_start = -1;
+  auto_complete_typed_length = -1;
+}
 
 static gboolean
 completion_match_selected(GtkEntryCompletion *completion, GtkTreeModel *model,
@@ -39,9 +70,7 @@ completion_match_selected(GtkEntryCompletion *completion, GtkTreeModel *model,
     ok = TRUE;
   }
 
-  in_auto_complete = FALSE;
-  auto_complete_caret_start = -1;
-  auto_complete_typed_length = -1;
+  reset_auto_complete();
   return ok;
 }
 
@@ -81,7 +110,7 @@ completion_match_func(GtkEntryCompletion *completion, const gchar *key,
     if(completion_text)
     {
       // Check for what we've typed inside the text.
-      if (g_strstr_len(completion_text, -1, characters) != NULL)
+      if (strcasestr((char *)completion_text, (char *)characters))
       {
         auto_complete_typed_length = strlen(characters);
         is_match = TRUE;

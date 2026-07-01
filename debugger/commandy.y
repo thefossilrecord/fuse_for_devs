@@ -91,6 +91,7 @@
 %token		 MEMORY
 %token		 NEXT
 %token		 DEBUGGER_OUT
+%token		 POKE
 %token		 PORT
 %token		 DEBUGGER_PRINT
 %token		 READ
@@ -189,6 +190,7 @@ command:   BASE number { debugger_output_base = $2; }
 	 | MEMORY number { ui_debugger_memory( $2 ); }
 	 | NEXT	    { debugger_next(); }
 	 | DEBUGGER_OUT number NUMBER { debugger_port_write( $2, $3 ); }
+	 | POKE NUMBER number { debugger_poke2( $2, $3 ); }
 	 | DEBUGGER_PRINT number { printf( "0x%x\n", $2 ); }
 	 | SET NUMBER number { debugger_poke( $2, $3 ); }
 	 | SET VARIABLE number { debugger_variable_set( $2, $3 ); }

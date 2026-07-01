@@ -1,5 +1,5 @@
-/* gtkinternals.h: stuff internal to the GTK UI
-   Copyright (c) 2003-2018 Philip Kendall
+/* completion.h: auto complete for debugger text entry
+   Copyright (c) 2026 bob_fossil
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -17,13 +17,12 @@
 
    Author contact information:
 
-   E-mail: philip-fuse@shadowmagic.org.uk
-
 */
 
 #ifndef FUSE_COMPLETION_H
 #define FUSE_COMPLETION_H
 
+void reset_auto_complete();
 void add_completion_to_entry( GtkWidget *text_entry);
 
 #endif

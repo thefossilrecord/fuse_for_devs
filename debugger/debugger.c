@@ -171,6 +171,21 @@ int
 debugger_poke( libspectrum_word address, libspectrum_byte value )
 {
   writebyte_internal( address, value );
+  ui_debugger_update();
+  return 0;
+}
+
+int
+debugger_poke2( libspectrum_word address, libspectrum_word value )
+{
+  if( value < 256)
+    writebyte_internal( address, value );
+  else
+  {
+    writebyte_internal( address, value & 0xff);
+    writebyte_internal( address + 1, value >> 8);
+  }
+  ui_debugger_update();
   return 0;
 }
 
