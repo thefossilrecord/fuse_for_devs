@@ -22,7 +22,12 @@
 #ifndef FUSE_COMPLETION_H
 #define FUSE_COMPLETION_H
 
+// Maximum size of command history buffer.
+#define MAX_COMMAND_HISTORY 32
+
 void reset_auto_complete();
 void add_completion_to_entry( GtkWidget *text_entry);
+
+void update_command_history(const gchar *command);
 
 #endif

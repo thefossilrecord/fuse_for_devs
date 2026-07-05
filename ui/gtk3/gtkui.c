@@ -311,7 +311,8 @@ ui_end(void)
 int
 ui_error_specific( ui_error_level severity, const char *message )
 {
-  GtkWidget *dialog, *label, *vbox, *content_area;
+  GtkWidget *dialog;
+  GtkMessageType type;
   const gchar *title;
 
   /* If we don't have a UI yet, we can't output widgets */
@@ -319,32 +320,17 @@ ui_error_specific( ui_error_level severity, const char *message )
 
   /* Set the appropriate title */
   switch( severity ) {
-  case UI_ERROR_INFO:	 title = "Fuse - Info"; break;
-  case UI_ERROR_WARNING: title = "Fuse - Warning"; break;
-  case UI_ERROR_ERROR:	 title = "Fuse - Error"; break;
-  default:		 title = "Fuse - (Unknown Error Level)"; break;
+  case UI_ERROR_INFO:	 title = "Fuse - Info"; type = GTK_MESSAGE_INFO; break;
+  case UI_ERROR_WARNING: title = "Fuse - Warning"; type = GTK_MESSAGE_WARNING; break;
+  case UI_ERROR_ERROR:	 title = "Fuse - Error"; type = GTK_MESSAGE_ERROR; break;
+  default:		 title = "Fuse - (Unknown Error Level)"; type = GTK_MESSAGE_OTHER; break;
   }
 
-  /* Create the dialog box */
-  dialog = gtkstock_dialog_new( title, G_CALLBACK( gtk_widget_destroy ) );
+  dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_MODAL, type, GTK_BUTTONS_OK, message );
 
-  /* Add the OK button into the lower half */
-  gtkstock_create_close( dialog, NULL, G_CALLBACK (gtk_widget_destroy),
-			 FALSE );
-
-  /* Create a label with that message */
-  label = gtk_label_new( message );
-
-  /* Make a new vbox for the top part for saner spacing */
-  vbox = gtk_box_new( GTK_ORIENTATION_VERTICAL, 0 );
-  content_area = gtk_dialog_get_content_area( GTK_DIALOG( dialog ) );
-  gtk_box_pack_start( GTK_BOX( content_area ), vbox, TRUE, TRUE, 0 );
-  gtk_container_set_border_width( GTK_CONTAINER( vbox ), 5 );
-
-  /* Put the label in it */
-  gtk_container_add( GTK_CONTAINER( vbox ), label );
-
-  gtk_widget_show_all( dialog );
+  gtk_window_set_title(GTK_WINDOW(dialog), title);
+  gtk_dialog_run(GTK_DIALOG(dialog));
+  gtk_widget_destroy( GTK_WIDGET(dialog) );
 
   return 0;
 }

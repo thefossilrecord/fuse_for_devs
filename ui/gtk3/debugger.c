@@ -1396,7 +1396,9 @@ static void
 evaluate_command( GtkWidget *widget, gpointer user_data GCC_UNUSED )
 {
   reset_auto_complete();
-  debugger_command_evaluate( gtk_entry_get_text( GTK_ENTRY( widget ) ) );
+  const gchar *command_text = gtk_entry_get_text( GTK_ENTRY( widget ) );
+  debugger_command_evaluate( command_text );
+  update_command_history( command_text );
 }
 
 static void
