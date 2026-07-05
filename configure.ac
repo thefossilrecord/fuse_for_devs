@@ -20,6 +20,7 @@ dnl E-mail: philip-fuse@shadowmagic.org.uk
 
 dnl Package version
 m4_define([fuse_version], [1.9.0])
+m4_define([fuse_for_devs_version], ["0.2"])
 
 dnl Product full version
 m4_define([fuse_major_version], [1])
@@ -46,16 +47,19 @@ AM_SILENT_RULES([yes])
 
 dnl Substitutions for .in files
 FUSE_FULL_VERSION=fuse_full_version
+FUSE_FOR_DEVS_VERSION=fuse_for_devs_version
 FUSE_COPYRIGHT=fuse_copyright
 FUSE_URL=fuse_url
 AC_SUBST(FUSE_FULL_VERSION)
 AC_SUBST(FUSE_COPYRIGHT)
 AC_SUBST(FUSE_URL)
+AC_SUBST(FUSE_FOR_DEVS_VERSION)
 
 dnl Definitions for config.h
 AC_DEFINE([FUSE_RC_VERSION], [fuse_rc_version],
           [Define version information for win32 executables])
 AC_DEFINE([FUSE_COPYRIGHT], [fuse_copyright], [Define copyright of Fuse])
+AC_DEFINE([FUSE_FOR_DEVS_VERSION], [fuse_for_devs_version], [Define version number of fuse_for_devs])
 
 dnl Configure option to specify testing build info
 AC_MSG_CHECKING(testing build information)
