@@ -17,6 +17,16 @@ make
 ```
 Changelog:
 
+v0.2
+
+- Initial commit of the auto completion window for SjASMPlus defined $variables. So if you type in `m $_ma` any symbols that contain `_ma` will be listed in an auto complete drop down.
+- Added poke command which works as a more memorable alias for `set <address> <value>`. It also supports poking a 16 bit value, so you can do `poke 40000 16384`.
+- Memory view is now updated when the debugger window is updated.
+- Added a command history to the debugger (currently 32 entries). Cursor up and down moves you through the previously entered commands. Text entry field is now also cleared when a command is entered.
+- Pressing F10 in the debugger text entry will now do a step over.
+- Pressing F11 in the debugger text entry will now do a step into.
+- If you entered an unknown command into the debugger then the focus was not returned to the debugger after dismissing the error message.
+
 v0.1
 
 - Added menu accelerators for Debugger (Escape), Hard Reset (Ctrl + Shift F5) and NMI (Shift + F5).
