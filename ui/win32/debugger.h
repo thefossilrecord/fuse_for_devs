@@ -36,8 +36,9 @@
 #define IDC_DBG_BTN_STEP		( IDD_DBG + 9 )
 #define IDC_DBG_BTN_CONT		( IDD_DBG + 10 )
 #define IDC_DBG_BTN_BREAK		( IDD_DBG + 11 )
+#define IDC_DBG_STATIC_MEM		( IDD_DBG + 12 )
 
-#define IDC_DBG_MAP11			( IDD_DBG + 12 )
+#define IDC_DBG_MAP11			( IDD_DBG + 13 )
 #define IDC_DBG_MAP12			( IDC_DBG_MAP11 + 1 )
 #define IDC_DBG_MAP13			( IDC_DBG_MAP12 + 1 )
 #define IDC_DBG_MAP14			( IDC_DBG_MAP13 + 1 )

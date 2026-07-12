@@ -40,6 +40,51 @@
 
 #include "settings.h"
 
+typedef void (*parse_function)(char *line);
+
+void parse_sym_file(char *line)
+{
+  /* Sym file line format is:
+  <name>: EQU <hex address>
+  */
+  char *split = strstr(line, ": EQU ");
+  if(split)
+  {
+    *split = 0;
+    /* ': EQU ' is 6 characters long */
+    libspectrum_dword equ = strtoul(split + 6, NULL, 16);
+    debugger_variable_set((const char *)line, equ);
+  }
+}
+
+void
+parse_lines(char *buffer, parse_function function)
+{
+  /* Go through buffer extracting a line at a time.*/
+  char *line_start = buffer, *line_end = NULL;
+  while(*line_start)
+  {
+    line_end = strchr(line_start, 0xa);
+    if(line_end)
+    {
+      /* Terminate line.*/
+      *line_end = 0;
+      /* Check for Windows line ending.*/
+      char *prev = line_end - 1;
+      if(prev && *prev == 0xd)
+        /* Terminate at previous character.*/
+        *prev = 0;
+    }
+  /* Pass extracted line to parsing function.*/
+  function(line_start);
+  if(line_end)
+    /* Move on to the next line.*/
+    line_start = line_end + 1;
+  else
+    break;
+  }
+}
+
 void
 debugger_sjasmplus_sym_init()
 {
@@ -49,31 +94,27 @@ debugger_sjasmplus_sym_init()
   FILE *sym_file = fopen(settings_current.debugger_sym_file, "r");
   if(sym_file)
   {
-    //printf("Sym File: %s\n", settings_current.debugger_sym_file);
-
-    char *line = NULL;
-    size_t len = 0;
-    size_t read = 0;
-
-    while((read = getline(&line, &len, sym_file)) != -1)
+    /* Get the file size.*/
+    fseek(sym_file, 0, SEEK_END);
+    long sym_file_size = ftell(sym_file);
+    if(sym_file_size!=-1)
     {
-      /* Sym file line format is:
-      <name>: EQU <address>
-      */
-      char *split = strstr(line, ": EQU ");
-      if(split)
+      /* Allocate a buffer to load the sym file into.*/
+      char *buffer = (char *)malloc(sym_file_size + 1);
+      if(buffer)
       {
-        *split = 0;
-        /* ': EQU ' is 6 characters long */
-        libspectrum_dword equ = strtoul(split + 6, NULL, 16);
-
-        debugger_variable_set((const char *)line, equ);
-
-        //printf("%s=%d\n", line, equ);
+        memset(buffer, 0, sym_file_size + 1);
+        /* Move back to the start and read the file in.*/
+        fseek(sym_file, 0, SEEK_SET);
+        long size = fread(buffer, 1, sym_file_size, sym_file);
+        if(size==sym_file_size)
+        {
+          parse_lines(buffer, parse_sym_file);
+        }
+        free(buffer);
       }
     }
-    if(line)
-      free(line);
+
     fclose(sym_file);
   }
 }

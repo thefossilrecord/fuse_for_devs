@@ -40,6 +40,7 @@ ui_win32_files = \
                  ui/win32/binary.h \
                  ui/win32/browse.c \
                  ui/win32/browse.h \
+                 ui/win32/completion.c \
                  ui/win32/confirm.c \
                  ui/win32/debugger.c \
                  ui/win32/debugger.h \

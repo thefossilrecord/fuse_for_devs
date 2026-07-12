@@ -157,13 +157,21 @@ Machine/_Reset..., Item, F5,,, 0
 #ifdef UI_GTK
 Machine/_Hard reset..., Item, <Shift><Control>F5, menu_machine_reset,, 1
 #else
+#ifdef UI_WIN32
+Machine/_Hard reset..., Item, Ctrl+Shift+F5, menu_machine_reset,, 1
+#else
 Machine/_Hard reset..., Item,, menu_machine_reset,, 1
+#endif
 #endif
 Machine/_Select..., Item, F9,, menu_machine_detail
 #ifdef UI_GTK
 Machine/_Debugger..., Item, Escape
 #else
+#ifdef UI_WIN32
+Machine/_Debugger..., Item, Escape
+#else
 Machine/_Debugger..., Item
+#endif
 #endif
 Machine/P_oke Finder..., Item
 Machine/Po_ke Memory..., Item
@@ -176,7 +184,11 @@ Machine/Profiler/_Stop, Item
 #ifdef UI_GTK
 Machine/_NMI, Item, <Shift>F5
 #else
+#ifdef UI_WIN32
+Machine/_NMI, Item, Shift+F5
+#else
 Machine/_NMI, Item
+#endif
 #endif
 
 Machine/Multiface Red _Button, Item

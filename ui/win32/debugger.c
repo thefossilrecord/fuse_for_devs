@@ -35,7 +35,8 @@
 #include <stdlib.h>
 #include <tchar.h>
 #include <windows.h>
- 
+
+#include "completion.h"
 #include "debugger/debugger.h"
 #include "event.h"
 #include "fuse.h"
@@ -85,6 +86,7 @@ static int create_disassembly( HFONT font );
 static int create_stack_display( HFONT font );
 static void stack_click( LPNMITEMACTIVATE lpnmitem );
 static int create_events( void );
+static int create_memory( HFONT font );
 static void events_click( LPNMITEMACTIVATE lpnmitem );
 /* int create_command_entry( void ); this function is handled by rc */
 /* int create_buttons( void ); this function is handled by rc */
@@ -94,6 +96,7 @@ static void update_memory_map( void );
 static void update_breakpoints( void );
 static void update_disassembly( void );
 static void update_events( void );
+static void update_memory( void );
 static void add_event( gpointer data, gpointer user_data GCC_UNUSED );
 static int deactivate_debugger( void );
 
@@ -131,6 +134,8 @@ static int dialog_created = 0;
 
 /* Is the debugger window active (as opposed to the debugger itself)? */
 static int debugger_active;
+
+static libspectrum_word memory_address = 0;
 
 #define STUB do { printf("STUB: %s()\n", __func__); fflush(stdout); } while(0)
 
@@ -288,6 +293,55 @@ ui_debugger_deactivate( int interruptable )
   return 0;
 }
 
+#define MEMORY_LINES 4
+#define MEMORY_LINE_LENGTH 128
+#define MEMORY_BYTE_LENGTH 16
+#define HEX_CODE_LENGTH 4
+
+void
+update_memory()
+{
+  libspectrum_word dump = memory_address;
+
+  char characters[MEMORY_BYTE_LENGTH + 1] = {0};
+  char hexcodes[MEMORY_BYTE_LENGTH * HEX_CODE_LENGTH] = {0};
+  char memory_lines[MEMORY_LINES * MEMORY_LINE_LENGTH] = {0};
+  char *line = &memory_lines[0];
+  for(int line_index = 0; line_index < MEMORY_LINES; line_index++)
+  {
+    char *hex = &hexcodes[0];
+    int address_start = dump;
+    for(int byte = 0; byte < MEMORY_BYTE_LENGTH; byte++)
+    {
+      libspectrum_byte b = readbyte_internal(dump);
+      snprintf(hex, HEX_CODE_LENGTH, "%02X ", b);
+      hex = hex + (HEX_CODE_LENGTH - 1);
+      characters[byte] =  (b >= 32 && b < 127 ) ? b : '.';
+      dump++;
+      if(dump > 65535)
+        dump = 0;
+    }
+    snprintf(line, MEMORY_LINE_LENGTH, format_16_bit(), address_start);
+    line = line + strlen(line);
+    snprintf(line, MEMORY_LINE_LENGTH, " %s %s\n", hexcodes, characters);
+    line = line + strlen(line);
+  }
+
+  SetDlgItemText(fuse_hDBGWnd, IDC_DBG_STATIC_MEM, memory_lines);
+  //printf("0x%04x: %s %s\n", address, hexcodes, characters);
+}
+
+/* Set the memory view to start at 'address' */
+int
+ui_debugger_memory( libspectrum_word address )
+{
+  memory_address = address;
+  if( debugger_active )
+    update_memory();
+
+  return 0;
+}
+
 static int
 create_dialog( void )
 {
@@ -310,9 +364,13 @@ create_dialog( void )
 
   error = create_disassembly( font ); if( error ) return error;
 
+  error = create_memory( font ); if ( error ) return error;
+
   error = create_stack_display( font ); if( error ) return error;
 
   error = create_events(); if( error ) return error;
+
+  init_command_history(GetDlgItem(fuse_hDBGWnd, IDC_DBG_ED_EVAL));
 
   /* Initially, have all the panes visible */
   for( i = DEBUGGER_PANE_BEGIN; i < DEBUGGER_PANE_END; i++ ) {
@@ -397,6 +455,14 @@ create_breakpoints( void )
                         ( LPARAM ) &lvc );
   }
   
+  return 0;
+}
+
+static int
+create_memory( HFONT font )
+{
+  memory_address = PC;
+  win32ui_set_font( fuse_hDBGWnd, IDC_DBG_STATIC_MEM, font );
   return 0;
 }
 
@@ -723,6 +789,7 @@ ui_debugger_update( void )
   update_memory_map();
   update_breakpoints();
   update_disassembly();
+  update_memory();
 
   /* And the stack display */
   SendDlgItemMessage( fuse_hDBGWnd, IDC_DBG_LV_STACK,
@@ -1088,20 +1155,20 @@ move_disassembly( WPARAM scroll_command )
 static void
 evaluate_command( void )
 {
-  TCHAR *buffer;
+  char *buffer;
   int buffer_size; 
 
   /* poll the size of the value in Evaluate text box first */
   buffer_size = SendDlgItemMessage( fuse_hDBGWnd, IDC_DBG_ED_EVAL, WM_GETTEXTLENGTH,
                                    (WPARAM) 0, (LPARAM) 0 );
-  buffer = malloc( ( buffer_size + 1 ) * sizeof( TCHAR ) );
+  buffer = malloc( ( buffer_size + 1 ) * sizeof( char ) );
   if( buffer == NULL ) {
     ui_error( UI_ERROR_ERROR, "Out of memory in %s.", __func__ );
     return;
   }
 
   /* get the value in Evaluate text box first */
-  if( SendDlgItemMessage( fuse_hDBGWnd, IDC_DBG_ED_EVAL, WM_GETTEXT,
+  if( SendDlgItemMessageA( fuse_hDBGWnd, IDC_DBG_ED_EVAL, WM_GETTEXT,
                           (WPARAM) ( buffer_size + 1 ),
                           (LPARAM) buffer ) != buffer_size ) {
     ui_error( UI_ERROR_ERROR,
@@ -1109,8 +1176,9 @@ evaluate_command( void )
     return;
   }
 
-  /* FIXME: need to convert from TCHAR to char to comply with unicode */
   debugger_command_evaluate( buffer );
+
+  update_command_history( buffer );
 
   free( buffer );
 }

@@ -413,7 +413,22 @@ sub _dump_win32 ($$$$) {
 	    $idmnum++;
 	} elsif( $mode eq 'a' ) {
 	    if( $item->{hotkey} ) {
-		print "  VK_" . uc( $item->{hotkey} ) . ", $idmname, VIRTKEY\n";
+		my $shift_string ="Shift+";
+		my $control_string = "Ctrl+";
+		my $control_shift_string = "Ctrl+Shift+";
+
+		if (index ($item->{hotkey}, $control_shift_string) != -1) {
+		    my $control_shift_key = substr($item->{hotkey}, length($control_shift_string));
+		    print "  VK_" . uc($control_shift_key ) . ", $idmname, CONTROL, SHIFT, VIRTKEY\n";
+		} elsif (index ($item->{hotkey}, $shift_string) != -1) {
+		    my $shift_key = substr($item->{hotkey}, length($shift_string));
+		    print "  VK_" . uc($shift_key ) . ", $idmname, SHIFT, VIRTKEY\n";
+		} elsif (index ($item->{hotkey}, $control_string) != -1) {
+		    my $control_key = substr($item->{hotkey}, length($control_string));
+		    print "  VK_" . uc($control_key ) . ", $idmname, CONTROL, VIRTKEY\n";
+		} else {
+		    print "  VK_" . uc( $item->{hotkey} ) . ", $idmname, VIRTKEY\n";
+		}
 	    }
 	}
 

@@ -193,6 +193,24 @@ breakpoint_add( debugger_breakpoint_type type, debugger_breakpoint_value value,
 		debugger_expression *condition )
 {
   debugger_breakpoint *bp;
+  GSList *ptr;
+  GSList *ptr_next;
+
+  /* Check if breakpoint has already been set. You can get spurious
+  breakpoints added if you do a next / step over on a jp instruction
+  that never goes back to the opcode after which has the breakpoint
+  set.*/
+  for( ptr = debugger_breakpoints; ptr; ptr = ptr_next )
+  {
+    bp = ptr->data;
+    ptr_next = ptr->next;
+    if(bp->type==type && bp->life==life && bp->ignore==ignore &&
+      !memcmp(&bp->value, &value, sizeof(debugger_breakpoint_value)))
+    {
+      /* Duplicate, so don't add.*/
+      return 1;
+    }
+  }
 
   bp = libspectrum_new( debugger_breakpoint, 1 );
 

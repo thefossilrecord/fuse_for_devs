@@ -440,19 +440,22 @@ ui_error_specific( ui_error_level severity, const char *message )
   /* If we don't have a UI yet, we can't output widgets */
   if( !display_ui_initialised ) return 0;
 
+  /* Can't assume fuse_hWnd is the parent window as we may be in the debugger. */
+  HWND parent = GetForegroundWindow();
+
   switch( severity ) {
 
   case UI_ERROR_INFO:
-    MessageBox( fuse_hWnd, message, "Fuse - Info", MB_ICONINFORMATION | MB_OK );
+    MessageBox( parent, message, "Fuse - Info", MB_ICONINFORMATION | MB_OK );
     break;
   case UI_ERROR_WARNING:
-    MessageBox( fuse_hWnd, message, "Fuse - Warning", MB_ICONWARNING | MB_OK );
+    MessageBox( parent, message, "Fuse - Warning", MB_ICONWARNING | MB_OK );
     break;
   case UI_ERROR_ERROR:
-    MessageBox( fuse_hWnd, message, "Fuse - Error", MB_ICONERROR | MB_OK );
+    MessageBox( parent, message, "Fuse - Error", MB_ICONERROR | MB_OK );
     break;
   default:
-    MessageBox( fuse_hWnd, message, "Fuse - (Unknown Error Level)",
+    MessageBox( parent, message, "Fuse - (Unknown Error Level)",
                 MB_ICONINFORMATION | MB_OK );
     break;
 
