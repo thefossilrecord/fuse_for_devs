@@ -2,13 +2,13 @@
 
 Branch of fuse 1.9.0 with experimental features and changes to improve the debugger on Linux/GTK and Windows for people using it to develop code with.
 
-##Requirements:
+## Requirements:
 
 - libspectrum 1.6.2 or newer. https://fuse-emulator.sourceforge.net/libspectrum.php You'll have this already if you've built Fuse from source before. Refer to the README file for compilation instructions. You may need to run 'sudo ldconfig' after installation.
 
-##Building:
+## Building:
 
-###Linux
+### Linux
 
 After cloning the repo or downloading the code from github, cd to the fuse_for_devs folder and compile with:
 
@@ -18,7 +18,7 @@ After cloning the repo or downloading the code from github, cd to the fuse_for_d
 make
 ```
 
-###Windows
+### Windows
 
 After cloning the repo or downloading the code from github, use the instructions outlined here -
 
@@ -26,7 +26,7 @@ https://sourceforge.net/p/fuse-emulator/wiki/Building%20Fuse%20on%20Windows%20wi
 
 -- using the fuse_for_devs code instead of the official fuse source.
 
-##Added features, changes and fixes:
+## Added features, changes and fixes:
 
 - Added menu accelerators for Debugger (Escape), Hard Reset (Ctrl + Shift F5) and NMI (Shift + F5).
 - Restored processing of $xxxx format hexadecimal numbers in the GTK debugger command entry box.
@@ -40,18 +40,18 @@ https://sourceforge.net/p/fuse-emulator/wiki/Building%20Fuse%20on%20Windows%20wi
 - Pressing F11 in the debugger text entry will now do a step into.
 - If you entered an unknown command into the debugger then the focus was not returned to the debugger after dismissing the error message.
 
-###GTK specific changes and bug fixes:
+### GTK specific changes and bug fixes:
 
 - Auto completion window for SjASMPlus defined $variables. So if you type in `m $_ma` any symbols that contain `_ma` will be listed in an auto complete drop down.
 - Increased font height in create_disassembly by 2 as commas were being cropped and displaying as full stops in the GTK debugger disassembly view.
 
-##Links:
+## Links:
 
 There is also a thread dedicated to this project on the Spectrum Computing forum:
 
 https://spectrumcomputing.co.uk/forums/viewtopic.php?f=23&t=15601
 
-##Thanks:
+## Thanks:
 
 - The Fuse team for their original work on the emulator and making the source available. https://fuse-emulator.sourceforge.net/fuse.php
 - adam on the spectrumcomputing forum for pointing out some issues with the build process of the initial v0.1 release.
