@@ -645,7 +645,7 @@ menu_help_about( GtkAction *gtk_action GCC_UNUSED, gpointer data GCC_UNUSED )
 {
   gtk_show_about_dialog( GTK_WINDOW( gtkui_window ),
                          "program-name", "Fuse",
-                         "comments", "The Free Unix Spectrum Emulator",
+                         "comments", "The Free Unix Spectrum Emulator\nfuse_for_devs version v" FUSE_FOR_DEVS_VERSION,
                          "copyright", FUSE_COPYRIGHT,
 #ifdef FUSE_ICON_AVAILABLE
                          "logo-icon-name", "net.sourceforge.fuse_emulator.Fuse",
