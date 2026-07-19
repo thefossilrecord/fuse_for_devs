@@ -106,3 +106,4 @@
 #define IDM_DBG_DIS			( IDM_DBG_BPS + 1 )
 #define IDM_DBG_STACK			( IDM_DBG_DIS + 1 )
 #define IDM_DBG_EVENTS			( IDM_DBG_STACK + 1 )
+#define IDM_DBG_MEMORY			( IDM_DBG_EVENTS + 1 )

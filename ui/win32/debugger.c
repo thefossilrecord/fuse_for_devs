@@ -69,6 +69,7 @@ typedef enum debugger_pane {
   DEBUGGER_PANE_DISASSEMBLY,
   DEBUGGER_PANE_STACK,
   DEBUGGER_PANE_EVENTS,
+  DEBUGGER_PANE_MEMORY,
 
   DEBUGGER_PANE_END		/* End marker */
 } debugger_pane;
@@ -136,6 +137,7 @@ static int dialog_created = 0;
 static int debugger_active;
 
 static libspectrum_word memory_address = 0;
+static libspectrum_word memory_bank = 8;
 
 #define STUB do { printf("STUB: %s()\n", __func__); fflush(stdout); } while(0)
 
@@ -215,6 +217,7 @@ get_pane_menu_item( debugger_pane pane )
   case DEBUGGER_PANE_DISASSEMBLY: menu_item_id = IDM_DBG_DIS; break;
   case DEBUGGER_PANE_STACK: menu_item_id = IDM_DBG_STACK; break;
   case DEBUGGER_PANE_EVENTS: menu_item_id = IDM_DBG_EVENTS; break;
+  case DEBUGGER_PANE_MEMORY: menu_item_id = IDM_DBG_MEMORY; break;
 
   case DEBUGGER_PANE_END: break;
   }
@@ -270,6 +273,10 @@ show_hide_pane( debugger_pane pane, int show )
     case DEBUGGER_PANE_EVENTS:
       ShowWindow( GetDlgItem( fuse_hDBGWnd, IDC_DBG_LV_EVENTS ), show );
       return TRUE;
+
+    case DEBUGGER_PANE_MEMORY:
+      ShowWindow( GetDlgItem( fuse_hDBGWnd, IDC_DBG_STATIC_MEM ), show );
+      return TRUE;
   
     case DEBUGGER_PANE_END: break;
   }
@@ -281,6 +288,8 @@ show_hide_pane( debugger_pane pane, int show )
 int
 ui_debugger_deactivate( int interruptable )
 {
+  reset_auto_complete(FALSE);
+
   if( debugger_active ) deactivate_debugger();
 
   if( dialog_created ) {
@@ -307,13 +316,21 @@ update_memory()
   char hexcodes[MEMORY_BYTE_LENGTH * HEX_CODE_LENGTH] = {0};
   char memory_lines[MEMORY_LINES * MEMORY_LINE_LENGTH] = {0};
   char *line = &memory_lines[0];
+  int capabilities = libspectrum_machine_capabilities( machine_current->machine );
+  int banks_available = capabilities & LIBSPECTRUM_MACHINE_CAPABILITY_128_MEMORY;
+
   for(int line_index = 0; line_index < MEMORY_LINES; line_index++)
   {
     char *hex = &hexcodes[0];
     int address_start = dump;
     for(int byte = 0; byte < MEMORY_BYTE_LENGTH; byte++)
     {
-      libspectrum_byte b = readbyte_internal(dump);
+      libspectrum_byte b;
+      if( memory_bank == 8 || !banks_available)
+        b = readbyte_internal(dump);
+      else
+        b = RAM[ memory_bank ][ dump & 0x3fff ];
+
       snprintf(hex, HEX_CODE_LENGTH, "%02X ", b);
       hex = hex + (HEX_CODE_LENGTH - 1);
       characters[byte] =  (b >= 32 && b < 127 ) ? b : '.';
@@ -333,9 +350,14 @@ update_memory()
 
 /* Set the memory view to start at 'address' */
 int
-ui_debugger_memory( libspectrum_word address )
+ui_debugger_memory( libspectrum_word address, libspectrum_word bank )
 {
   memory_address = address;
+  if(bank>=0 && bank < 9)
+    memory_bank = bank;
+  else
+    memory_bank = 8;
+
   if( debugger_active )
     update_memory();
 
@@ -668,6 +690,7 @@ activate_debugger( void )
   debugger_active = 1;
 
   ui_debugger_disassemble( PC );
+  ui_debugger_memory( memory_address, 8 );
   ui_debugger_update();
 
   win32ui_process_messages( 0 );
@@ -1156,21 +1179,16 @@ static void
 evaluate_command( void )
 {
   char *buffer;
-  int buffer_size; 
 
-  /* poll the size of the value in Evaluate text box first */
-  buffer_size = SendDlgItemMessage( fuse_hDBGWnd, IDC_DBG_ED_EVAL, WM_GETTEXTLENGTH,
-                                   (WPARAM) 0, (LPARAM) 0 );
-  buffer = malloc( ( buffer_size + 1 ) * sizeof( char ) );
-  if( buffer == NULL ) {
-    ui_error( UI_ERROR_ERROR, "Out of memory in %s.", __func__ );
+  if(in_auto_complete())
+  {
+    reset_auto_complete(TRUE);
     return;
   }
 
-  /* get the value in Evaluate text box first */
-  if( SendDlgItemMessageA( fuse_hDBGWnd, IDC_DBG_ED_EVAL, WM_GETTEXT,
-                          (WPARAM) ( buffer_size + 1 ),
-                          (LPARAM) buffer ) != buffer_size ) {
+  buffer = get_command_text();
+  if(!buffer)
+  {
     ui_error( UI_ERROR_ERROR,
               "Couldn't get the content of the Evaluate text box" );
     return;
@@ -1226,6 +1244,15 @@ win32ui_debugger_proc( HWND hWnd GCC_UNUSED, UINT msg,
       switch( LOWORD( wParam ) ) {
         case IDCLOSE:
         case IDCANCEL:
+          if(HIWORD(wParam)==0 && LOWORD(wParam)==2)
+          {
+            // ESCAPE menu accelerator. Close auto complete if up.
+            if(in_auto_complete())
+            {
+              reset_auto_complete(FALSE);
+              return 0;
+            }
+          }
           win32ui_debugger_done_close();
           return 0;
         case IDC_DBG_BTN_CONT:
@@ -1259,6 +1286,9 @@ win32ui_debugger_proc( HWND hWnd GCC_UNUSED, UINT msg,
           return 0;
         case IDM_DBG_EVENTS:
           toggle_display( DEBUGGER_PANE_EVENTS, IDM_DBG_EVENTS );
+          return 0;
+        case IDM_DBG_MEMORY:
+          toggle_display( DEBUGGER_PANE_MEMORY, IDM_DBG_MEMORY );
           return 0;
       }
       break;

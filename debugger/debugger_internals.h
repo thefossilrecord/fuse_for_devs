@@ -121,7 +121,11 @@ void debugger_variable_end( void );
 void debugger_variable_set( const char *name, libspectrum_dword value );
 libspectrum_dword debugger_variable_get( const char *name );
 
-/* SjASMPlus support */
+/* Symbol file support */
+typedef void (*parse_function)(char *line, void *parameters);
+
 void debugger_sjasmplus_sym_init( void );
+void debugger_parse_lines_from_buffer(char *buffer, parse_function function, void *parameters);
+int debugger_load_symbol_file_to_buffer(char *path, char **symbol_buffer);
 
 #endif				/* #ifndef FUSE_DEBUGGER_INTERNALS_H */

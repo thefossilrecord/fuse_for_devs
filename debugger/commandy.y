@@ -116,7 +116,7 @@
 %type  <bptype>  portbreakpointtype
 %type  <integer> numberorpc
 %type  <integer> number
-
+%type  <integer> optionalnumber
 %type  <exp>     optionalcondition
 
 %type  <exp>     expressionornull
@@ -187,7 +187,7 @@ command:   BASE number { debugger_output_base = $2; }
 	 | DEBUGGER_IGNORE NUMBER number {
 	     debugger_breakpoint_ignore( $2, $3 );
 	   }
-	 | MEMORY number { ui_debugger_memory( $2 ); }
+	 | MEMORY number optionalnumber { ui_debugger_memory( $2, $3 ); }
 	 | NEXT	    { debugger_next(); }
 	 | DEBUGGER_OUT number NUMBER { debugger_port_write( $2, $3 ); }
 	 | POKE NUMBER number { debugger_poke2( $2, $3 ); }
@@ -234,6 +234,10 @@ optionalcondition:   /* empty */   { $$ = NULL; }
 
 numberorpc:   /* empty */ { $$ = PC; }
 	    | number      { $$ = $1; }
+;
+
+optionalnumber:   /* empty */ { $$ = -1; }
+		   | NUMBER  { $$ = $1; }
 ;
 
 expressionornull:   /* empty */ { $$ = NULL; }

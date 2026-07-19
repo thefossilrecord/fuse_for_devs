@@ -61,6 +61,7 @@ typedef enum debugger_pane {
   DEBUGGER_PANE_DISASSEMBLY,
   DEBUGGER_PANE_STACK,
   DEBUGGER_PANE_EVENTS,
+  DEBUGGER_PANE_MEMORY,
 
   DEBUGGER_PANE_END		/* End marker */
 
@@ -121,6 +122,7 @@ static void toggle_display_disassembly( GtkToggleAction* action,
                                         gpointer data );
 static void toggle_display_stack( GtkToggleAction* action, gpointer data );
 static void toggle_display_events( GtkToggleAction* action, gpointer data );
+static void toggle_display_memory( GtkToggleAction* action, gpointer data );
 static int create_register_display( GtkBox *parent, PangoFontDescription *font );
 static int create_memory_map( GtkBox *parent );
 static void create_breakpoints( GtkBox *parent );
@@ -195,6 +197,7 @@ static int dialog_created = 0;
 static int debugger_active;
 
 static libspectrum_word memory_address = 0;
+static libspectrum_word memory_bank = 8;
 
 /* The UIManager used to create the menu bar */
 static GtkUIManager *ui_manager_debugger = NULL;
@@ -209,6 +212,7 @@ const gchar debugger_menu[] =
 "    <menuitem name='Disassembly' action='VIEW_DISASSEMBLY'/>"
 "    <menuitem name='Stack' action='VIEW_STACK'/>"
 "    <menuitem name='Events' action='VIEW_EVENTS'/>"
+"    <menuitem name='Memory' action='VIEW_MEMORY'/>"
 "  </menu>"
 "</menubar>";
 
@@ -227,6 +231,7 @@ static GtkToggleActionEntry menu_toggles[] = {
   { "VIEW_DISASSEMBLY", NULL, "_Disassembly", NULL, NULL, G_CALLBACK( toggle_display_disassembly ), TRUE },
   { "VIEW_STACK", NULL, "_Stack", NULL, NULL, G_CALLBACK( toggle_display_stack ), TRUE },
   { "VIEW_EVENTS", NULL, "_Events", NULL, NULL, G_CALLBACK( toggle_display_events ), TRUE },
+  { "VIEW_MEMORY", NULL, "_Memory", NULL, NULL, G_CALLBACK( toggle_display_memory ), TRUE },
 
 };
 
@@ -307,6 +312,7 @@ get_pane_menu_item( debugger_pane pane )
   case DEBUGGER_PANE_DISASSEMBLY: path = "/View/Disassembly"; break;
   case DEBUGGER_PANE_STACK: path = "/View/Stack"; break;
   case DEBUGGER_PANE_EVENTS: path = "/View/Events"; break;
+  case DEBUGGER_PANE_MEMORY: path = "/View/Memory"; break;
 
   case DEBUGGER_PANE_END: break;
   }
@@ -339,7 +345,7 @@ get_pane( debugger_pane pane )
   case DEBUGGER_PANE_DISASSEMBLY: return disassembly_box;
   case DEBUGGER_PANE_STACK: return stack;
   case DEBUGGER_PANE_EVENTS: return events;
-
+  case DEBUGGER_PANE_MEMORY: return memory;
   case DEBUGGER_PANE_END: break;
   }
 
@@ -508,6 +514,12 @@ static void
 toggle_display_events( GtkToggleAction* action, gpointer data GCC_UNUSED )
 {
   toggle_display( action, DEBUGGER_PANE_EVENTS );
+}
+
+static void
+toggle_display_memory( GtkToggleAction* action, gpointer data GCC_UNUSED )
+{
+  toggle_display( action, DEBUGGER_PANE_MEMORY );
 }
 
 static int
@@ -809,7 +821,7 @@ activate_debugger( void )
 
   reset_auto_complete();
   ui_debugger_disassemble( PC );
-  ui_debugger_memory( memory_address );
+  ui_debugger_memory( memory_address, 8 );
   ui_debugger_update();
 
   gtk_main();
@@ -1146,13 +1158,21 @@ update_memory()
   char hexcodes[MEMORY_BYTE_LENGTH * HEX_CODE_LENGTH] = {0};
   char memory_lines[MEMORY_LINES * MEMORY_LINE_LENGTH] = {0};
   char *line = &memory_lines[0];
+  int capabilities = libspectrum_machine_capabilities( machine_current->machine );
+  int banks_available = capabilities & LIBSPECTRUM_MACHINE_CAPABILITY_128_MEMORY;
+
   for(int line_index = 0; line_index < MEMORY_LINES; line_index++)
   {
     char *hex = &hexcodes[0];
     int address_start = dump;
     for(int byte = 0; byte < MEMORY_BYTE_LENGTH; byte++)
     {
-      libspectrum_byte b = readbyte_internal(dump);
+      libspectrum_byte b;
+      if( memory_bank == 8 || !banks_available)
+        b = readbyte_internal(dump);
+      else
+        b = RAM[ memory_bank ][ dump & 0x3fff ];
+
       snprintf(hex, HEX_CODE_LENGTH, "%02X ", b);
       hex = hex + (HEX_CODE_LENGTH - 1);
       characters[byte] =  (b >= 32 && b < 127 ) ? b : '.';
@@ -1172,9 +1192,14 @@ update_memory()
 
 /* Set the memory view to start at 'address' */
 int
-ui_debugger_memory( libspectrum_word address )
+ui_debugger_memory( libspectrum_word address, libspectrum_word bank )
 {
   memory_address = address;
+  if(bank>=0 && bank < 9)
+    memory_bank = bank;
+  else
+    memory_bank = 8;
+
   if( debugger_active )
     update_memory();
 

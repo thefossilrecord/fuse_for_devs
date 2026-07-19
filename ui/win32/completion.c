@@ -25,6 +25,9 @@
 
 #include "completion.h"
 #include "debugger/debugger.h"
+#include "debugger/debugger_internals.h"
+#include "settings.h"
+#include "win32internals.h"
 
 // Command history functions.
 
@@ -140,46 +143,182 @@ update_command_history(char *command)
 }
 
 
-//
-/*
-static
-gboolean text_entry_keypress(GtkWidget *widget, GdkEventKey *event,
-                               gpointer user_data)
+// Auto complete functions.
+
+BOOL auto_complete_ok = FALSE;
+HWND auto_complete_window = NULL;
+GSList *auto_complete_list = NULL;
+int auto_complete_beam_start = -1;
+int auto_complete_typed_length = 0;
+
+void
+parse_autocomplete(char *line, void *parameter)
 {
-  gboolean handled = FALSE;
-  switch(event->keyval)
+  char *split = strstr(line, ": EQU ");
+  if(split)
   {
-    case GDK_KEY_Up:
-      //g_print("Cursor up\n");
-      if(!in_auto_complete)
+    *split = 0;
+    int length = strlen(line);
+    char *copy = malloc(length + 1);
+    memset(copy, 0, length + 1);
+    memcpy(copy, line, length);
+    auto_complete_list = g_slist_append( auto_complete_list, copy );
+  }
+}
+
+char
+*match_auto_complete(char *source, char *match)
+{
+  char *character = source;
+  while(*character)
+  {
+    if(toupper(*character)==toupper(*match))
+    {
+      char *one = character + 1;
+      char *two = match + 1;
+      while(1)
       {
-        get_command_from_history(TRUE);
-        handled = TRUE;
+        if(!*two)
+          // Matched all the characters.
+          return character;
+       if(!*one)
+         // Ran out of source characters.
+         break;
+       if(toupper(*one)!=toupper(*two))
+         break;
+      one++;
+      two++;
       }
-      break;
+    }
+    character++;
+  }
+  return NULL;
+}
 
-    case GDK_KEY_Down:
-      //g_print("Cursor down\n");
-      if(!in_auto_complete)
-      {
-        get_command_from_history(FALSE);
-        handled = TRUE;
-      }
-      break;
+void
+show_auto_complete()
+{
+  if( !settings_current.debugger_sym_file )
+    return;
 
-    case GDK_KEY_dollar:
-      //g_print("$\n");
-      if(auto_complete_ok)
-        in_auto_complete = TRUE;
-      break;
-
-//    default:
-//      g_print("keypress: %#06x %#06x\n", event->keyval, event->hardware_keycode);
+  if( !auto_complete_list )
+  {
+    /* Load in symbols into completion list. */
+    char *auto_complete_buffer = NULL;
+    if( debugger_load_symbol_file_to_buffer(settings_current.debugger_sym_file,
+      &auto_complete_buffer) )
+    {
+      debugger_parse_lines_from_buffer(auto_complete_buffer, parse_autocomplete, NULL);
+      if(auto_complete_list)
+        auto_complete_ok = TRUE;
+      free( auto_complete_buffer );
+    }
   }
 
-  return handled;
+  if( !auto_complete_ok )
+    return;
+
+  /* Get the current command. */
+  char *line = get_command_text();
+  if(!line)
+    return;
+
+  if(auto_complete_beam_start==-1)
+  {
+    /* Get position of caret when we typed $. */
+    DWORD start = 0, end = 0;
+    SendMessage(debugger_edit_area, EM_GETSEL, (WPARAM)&start, (LPARAM)&end);
+    auto_complete_beam_start = (int)start;
   }
-*/
+
+  char *typed = &line[auto_complete_beam_start + 1]; // +1 to skip $
+
+  //char dbg[256];
+  //wsprintf(dbg, "'%s' '%s'", line, typed);
+  //MessageBox(NULL, dbg, "debug", MB_OK);
+
+  RECT debugger_edit_area_rect;
+  GetWindowRect(debugger_edit_area, &debugger_edit_area_rect);
+
+  if(!auto_complete_window)
+  {
+    /* Create popup completion list window. */
+    HWND desktop = GetDesktopWindow();
+    RECT desktop_rect;
+    int auto_complete_window_y = debugger_edit_area_rect.bottom;
+    GetWindowRect(desktop, &desktop_rect);
+    if(debugger_edit_area_rect.bottom + AUTO_COMPLETE_HEIGHT > desktop_rect.bottom)
+      // No space so put completion list above the edit area.
+      auto_complete_window_y = debugger_edit_area_rect.top - AUTO_COMPLETE_HEIGHT;
+
+    auto_complete_window = CreateWindowEx(WS_EX_NOACTIVATE|WS_EX_TOPMOST, "LISTBOX", "", WS_POPUP|WS_BORDER|LBS_SORT|LBS_NOINTEGRALHEIGHT|WS_VSCROLL,
+      debugger_edit_area_rect.left, auto_complete_window_y, debugger_edit_area_rect.right - debugger_edit_area_rect.left, AUTO_COMPLETE_HEIGHT, debugger_edit_area, NULL, fuse_hInstance, 0);
+    HFONT auto_complete_font = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    SendMessage( auto_complete_window, WM_SETFONT, (WPARAM) auto_complete_font, FALSE );
+  }
+
+  auto_complete_typed_length = strlen(typed);
+  if(auto_complete_typed_length < 2)
+  {
+    free(line);
+    return;
+  }
+
+  /* Show list and add any matching entries. */
+  ShowWindow(auto_complete_window, SW_SHOWNA);
+
+  SendMessage(auto_complete_window, LB_RESETCONTENT, 0, 0);
+  GSList *ptr;
+  for( ptr = auto_complete_list; ptr; ptr = ptr->next )
+  {
+    char *text = ptr->data;
+    if(match_auto_complete(text, typed))
+    {
+      LRESULT index = SendMessageA(auto_complete_window, LB_ADDSTRING, 0, (LPARAM)text);
+      SendMessage(auto_complete_window, LB_SETITEMDATA, index, (LPARAM)text);
+    }
+  }
+
+  SendMessage(auto_complete_window, LB_SETCURSEL, 0, 0);
+  free(line);
+}
+
+void
+reset_auto_complete(BOOL insert)
+{
+  if(auto_complete_window)
+  {
+    if(insert)
+    {
+      /* Get text from the auto complete list. */
+      int selection = SendMessage(auto_complete_window, LB_GETCURSEL, 0, 0);
+      if(selection!=LB_ERR)
+      {
+        char *auto_complete_text = (char *)SendMessage(auto_complete_window, LB_GETITEMDATA, selection, 0);
+        if(auto_complete_text)
+        {
+          /* Replace typed text with auto complete text. */
+          auto_complete_beam_start++;
+          int auto_complete_beam_end = auto_complete_beam_start + auto_complete_typed_length;
+          SendMessage(debugger_edit_area, EM_SETSEL, auto_complete_beam_start, auto_complete_beam_end);
+          SendMessage(debugger_edit_area, EM_REPLACESEL, FALSE, (LPARAM)auto_complete_text);
+          auto_complete_beam_end = auto_complete_beam_start + strlen(auto_complete_text);
+          SendMessage(debugger_edit_area, EM_SETSEL, auto_complete_beam_end, auto_complete_beam_end);
+        }
+      }
+    }
+    DestroyWindow(auto_complete_window);
+    auto_complete_window = NULL;
+    auto_complete_beam_start = -1;
+    auto_complete_typed_length = 0;
+  }
+}
+
+BOOL
+in_auto_complete()
+{
+  return auto_complete_window ? TRUE : FALSE;
+}
 
 LRESULT CALLBACK
 debugger_edit_subclass_proc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
@@ -191,16 +330,79 @@ debugger_edit_subclass_proc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, 
       switch(wParam)
       {
         case VK_UP:
-          get_command_from_history(TRUE);
+          if(!auto_complete_window)
+            get_command_from_history(TRUE);
+          else
+          {
+            /* Relay keypress to the auto complete list. */
+            SendMessage(auto_complete_window, uMsg, wParam, lParam);
+          }
           return 0;
         case VK_DOWN:
-          get_command_from_history(FALSE);
+          if(!auto_complete_window)
+            get_command_from_history(FALSE);
+          else
+          {
+            SendMessage(auto_complete_window, uMsg, wParam, lParam);
+          }
           return 0;
+
+        case VK_HOME:
+        case VK_END:
+        case VK_NEXT:
+        case VK_PRIOR:
+        {
+          if(auto_complete_window)
+          {
+            SendMessage(auto_complete_window, uMsg, wParam, lParam);
+            return 0;
+          }
+          break;
+        }
+
         case VK_F11:
           debugger_step();
           break;
       }
       break;
+    }
+    break;
+
+    case WM_KEYUP:
+    {
+      switch(wParam)
+      {
+        case VK_UP:
+        case VK_DOWN:
+        case VK_HOME:
+        case VK_END:
+        case VK_PRIOR:
+        case VK_NEXT:
+          if(auto_complete_window)
+            /* Auto complete list has already handled these. */
+            return 0;
+          break;
+        default:
+        {
+          if(auto_complete_window)
+            /* Update auto complete list with latest keypress. */
+            show_auto_complete();
+        }
+      }
+    }
+    break;
+
+    case WM_CHAR:
+    {
+      switch(wParam)
+      {
+        case 0x24:	// $
+        {
+        if(!auto_complete_window)
+          show_auto_complete();
+        }
+        break;
+      }
     }
     break;
 
@@ -223,4 +425,19 @@ init_command_history(HWND edit)
 {
   debugger_edit_area = edit;
   SetWindowSubclass(edit, (SUBCLASSPROC)debugger_edit_subclass_proc, 100, 0);
+}
+
+char *
+get_command_text()
+{
+  char *command = NULL;
+  int command_size = SendMessage( debugger_edit_area, WM_GETTEXTLENGTH,
+                                   (WPARAM) 0, (LPARAM) 0 );
+  command = malloc( ( command_size + 1 ) * sizeof( char ) );
+  if(!command)
+    return command;
+
+  SendMessageA( debugger_edit_area, WM_GETTEXT, (WPARAM) ( command_size + 1 ),
+                          (LPARAM) command );
+  return command;
 }

@@ -129,5 +129,6 @@ BEGIN
     MENUITEM "&Disassembly", IDM_DBG_DIS
     MENUITEM "&Stack", IDM_DBG_STACK
     MENUITEM "&Events", IDM_DBG_EVENTS
+    MENUITEM "Memor&y", IDM_DBG_MEMORY
   END
 END

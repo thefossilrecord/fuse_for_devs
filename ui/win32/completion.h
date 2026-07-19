@@ -25,8 +25,11 @@
 // Maximum size of command history buffer.
 #define MAX_COMMAND_HISTORY 32
 
-//void reset_auto_complete();
-//void add_completion_to_entry( GtkWidget *text_entry);
+#define AUTO_COMPLETE_HEIGHT 150
+
+void reset_auto_complete(BOOL insert);
+BOOL in_auto_complete();
+char *get_command_text();
 void init_command_history(HWND edit);
 
 void update_command_history(char *command);

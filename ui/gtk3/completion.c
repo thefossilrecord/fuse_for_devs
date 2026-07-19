@@ -26,6 +26,7 @@
 
 #include "completion.h"
 #include "debugger/debugger.h"
+#include "debugger/debugger_internals.h"
 #include "settings.h"
 
 // Command history functions.
@@ -291,56 +292,58 @@ gboolean text_entry_keypress(GtkWidget *widget, GdkEventKey *event,
   return handled;
   }
 
+struct parse_data
+{
+  GtkListStore *store;
+  GtkTreeIter iter;
+  int store_size;
+};
+
+void parse_line_for_auto_complete(char *line, void *param)
+{
+  struct parse_data *pdata = (struct parse_data *)param;
+  char *split = strstr(line, ": EQU ");
+  if(split)
+  {
+    *split = 0;
+    int length = strlen(line);
+    gtk_list_store_append(pdata->store, &pdata->iter);
+    gchar *new_entry = (gchar *)malloc(length + 1);// 2);
+    gchar *pointer = new_entry;
+
+    memcpy(pointer, line, length + 1);
+
+    gtk_list_store_set(pdata->store, &pdata->iter, 0, new_entry, -1);
+    pdata->store_size++;
+  }
+}
+
 void
 add_completion_to_entry(GtkWidget *text_entry)
 {
   // Create a list store from the sym file.
   GtkListStore *store = NULL;
-  int store_size = 0;
   debugger_text_entry = text_entry;
+  struct parse_data pdata = {0};
 
-  FILE *sym_file = fopen(settings_current.debugger_sym_file, "r");
-  if(sym_file)
+  char *buffer = NULL;
+  if(settings_current.debugger_sym_file)
   {
-    //printf("Sym File: %s\n", settings_current.debugger_sym_file);
-    store = gtk_list_store_new(1, G_TYPE_STRING);
-    char *line = NULL;
-    size_t len = 0;
-    size_t read = 0;
-    GtkTreeIter iter;
-
-    while((read = getline(&line, &len, sym_file)) != -1)
+    if(debugger_load_symbol_file_to_buffer(
+      settings_current.debugger_sym_file, &buffer));
     {
-      /* Sym file line format is:
-         <name>: EQU <address>
-      */
-      char *split = strstr(line, ": EQU ");
-      if(split)
-      {
-        *split = 0;
-        int length = strlen(line);
-
-        gtk_list_store_append(store, &iter);
-        gchar *new_entry = (gchar *)malloc(length + 1);// 2);
-        gchar *pointer = new_entry;
-
-        memcpy(pointer, line, length + 1);
-
-        gtk_list_store_set(store, &iter, 0, new_entry, -1);
-        store_size++;
-      }
+      store = gtk_list_store_new(1, G_TYPE_STRING);
+      pdata.store = store;
+      debugger_parse_lines_from_buffer(buffer, parse_line_for_auto_complete, &pdata);
+      free(buffer);
     }
-
-    if(line)
-      free(line);
-
-    fclose(sym_file);
   }
+
 
   // Register key press event for the text entry.
   g_signal_connect(text_entry, "key_press_event", G_CALLBACK(text_entry_keypress), NULL);
 
-  if(store_size)
+  if(pdata.store_size)
   {
     // Create an entry completion.
     GtkEntryCompletion *completion = gtk_entry_completion_new();

@@ -40,9 +40,7 @@
 
 #include "settings.h"
 
-typedef void (*parse_function)(char *line);
-
-void parse_sym_file(char *line)
+void parse_sym_file(char *line, void *parameters)
 {
   /* Sym file line format is:
   <name>: EQU <hex address>
@@ -58,7 +56,7 @@ void parse_sym_file(char *line)
 }
 
 void
-parse_lines(char *buffer, parse_function function)
+debugger_parse_lines_from_buffer(char *buffer, parse_function function, void *parameters)
 {
   /* Go through buffer extracting a line at a time.*/
   char *line_start = buffer, *line_end = NULL;
@@ -76,7 +74,7 @@ parse_lines(char *buffer, parse_function function)
         *prev = 0;
     }
   /* Pass extracted line to parsing function.*/
-  function(line_start);
+  function(line_start, parameters);
   if(line_end)
     /* Move on to the next line.*/
     line_start = line_end + 1;
@@ -85,13 +83,11 @@ parse_lines(char *buffer, parse_function function)
   }
 }
 
-void
-debugger_sjasmplus_sym_init()
+int
+debugger_load_symbol_file_to_buffer(char *path, char **symbol_buffer)
 {
-  if( !settings_current.debugger_sym_file )
-    return;
-
-  FILE *sym_file = fopen(settings_current.debugger_sym_file, "r");
+  int ok = 0;
+  FILE *sym_file = fopen(path, "r");
   if(sym_file)
   {
     /* Get the file size.*/
@@ -109,12 +105,29 @@ debugger_sjasmplus_sym_init()
         long size = fread(buffer, 1, sym_file_size, sym_file);
         if(size==sym_file_size)
         {
-          parse_lines(buffer, parse_sym_file);
+          ok = 1;
+          *symbol_buffer = buffer;
         }
-        free(buffer);
+        else
+          free(buffer);
       }
     }
-
     fclose(sym_file);
+  }
+  return ok;
+}
+
+void
+debugger_sjasmplus_sym_init()
+{
+  if( !settings_current.debugger_sym_file )
+    return;
+
+  char *sjasm_plus_sym_file_buffer = NULL;
+  if( debugger_load_symbol_file_to_buffer(settings_current.debugger_sym_file,
+      &sjasm_plus_sym_file_buffer) )
+  {
+    debugger_parse_lines_from_buffer(sjasm_plus_sym_file_buffer, parse_sym_file, NULL);
+    free(sjasm_plus_sym_file_buffer);
   }
 }
