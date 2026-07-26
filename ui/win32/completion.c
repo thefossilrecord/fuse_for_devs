@@ -264,11 +264,9 @@ show_auto_complete()
     return;
   }
 
-  /* Show list and add any matching entries. */
-  ShowWindow(auto_complete_window, SW_SHOWNA);
-
   SendMessage(auto_complete_window, LB_RESETCONTENT, 0, 0);
   GSList *ptr;
+  int added = 0;
   for( ptr = auto_complete_list; ptr; ptr = ptr->next )
   {
     char *text = ptr->data;
@@ -276,10 +274,19 @@ show_auto_complete()
     {
       LRESULT index = SendMessageA(auto_complete_window, LB_ADDSTRING, 0, (LPARAM)text);
       SendMessage(auto_complete_window, LB_SETITEMDATA, index, (LPARAM)text);
+      added++;
     }
   }
 
-  SendMessage(auto_complete_window, LB_SETCURSEL, 0, 0);
+  if(added)
+  {
+    /* Show list and add any matching entries. */
+    ShowWindow(auto_complete_window, SW_SHOWNA);
+    SendMessage(auto_complete_window, LB_SETCURSEL, 0, 0);
+  }
+  else
+    ShowWindow(auto_complete_window, SW_HIDE);
+
   free(line);
 }
 
@@ -317,7 +324,10 @@ reset_auto_complete(BOOL insert)
 BOOL
 in_auto_complete()
 {
-  return auto_complete_window ? TRUE : FALSE;
+  if(auto_complete_window && IsWindowVisible(auto_complete_window))
+    return TRUE;
+  
+  return FALSE;
 }
 
 LRESULT CALLBACK

@@ -97,8 +97,8 @@ debugger_process_evaluate_dollars( const char *command )
       if(replacements)
       {
       /* Allocate a string with enough space to hold the replaced $
-      characters. */
-      size_t alloc = strlen(command);
+      characters. +1 for terminating zero. */
+      size_t alloc = strlen(command) + 1;
       evaluated = (char *)malloc(alloc + replacements);
       memset(evaluated, 0, alloc + replacements);
       memcpy(evaluated, command, alloc);

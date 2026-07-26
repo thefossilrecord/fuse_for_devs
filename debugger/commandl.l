@@ -81,6 +81,7 @@ s|st|ste|step { return STEP; }
 t|tb|tbr|tbre|tbrea|tbreak|tbreakp|tbreakpo|tbreakpoi|tbreakpoin|tbreakpoint {
 							       return TBREAK; }
 ti|tim|time { return TIME; }
+wa|wch|watch { return WATCH; }
 w|wr|wri|writ|write { return WRITE; }
 
 "("		{ return '('; }

@@ -62,6 +62,7 @@ typedef enum debugger_pane {
   DEBUGGER_PANE_STACK,
   DEBUGGER_PANE_EVENTS,
   DEBUGGER_PANE_MEMORY,
+  DEBUGGER_PANE_WATCHES,
 
   DEBUGGER_PANE_END		/* End marker */
 
@@ -108,6 +109,16 @@ enum {
   EVENTS_COLUMN_COUNT
 };
 
+/* The columns used in the watch list */
+enum {
+  WATCHES_COLUMN_ID,
+  WATCHES_COLUMN_ADDRESS,
+  WATCHES_COLUMN_VALUE,
+
+  WATCHES_COLUMN_COUNT
+};
+
+
 static int create_dialog( void );
 static int hide_hidden_panes( void );
 static GtkCheckMenuItem* get_pane_menu_item( debugger_pane pane );
@@ -123,6 +134,7 @@ static void toggle_display_disassembly( GtkToggleAction* action,
 static void toggle_display_stack( GtkToggleAction* action, gpointer data );
 static void toggle_display_events( GtkToggleAction* action, gpointer data );
 static void toggle_display_memory( GtkToggleAction* action, gpointer data );
+static void toggle_display_watches( GtkToggleAction* action, gpointer data );
 static int create_register_display( GtkBox *parent, PangoFontDescription *font );
 static int create_memory_map( GtkBox *parent );
 static void create_breakpoints( GtkBox *parent );
@@ -135,6 +147,7 @@ static void events_activate( GtkTreeView *tree_view, GtkTreePath *path,
 			     GtkTreeViewColumn *column, gpointer user_data );
 static int create_command_entry( GtkBox *parent, GtkAccelGroup *accel_group );
 static int create_memory_label( GtkBox *parent, PangoFontDescription *font);
+static int create_watches( GtkBox *parent, PangoFontDescription *font);
 static int create_buttons( GtkDialog *parent, GtkAccelGroup *accel_group );
 
 static int activate_debugger( void );
@@ -143,6 +156,7 @@ static void update_breakpoints( void );
 static void update_disassembly( void );
 static void update_memory( void );
 static void update_events( void );
+static void update_watches( void );
 static void add_event( gpointer data, gpointer user_data );
 static int deactivate_debugger( void );
 
@@ -176,11 +190,13 @@ static GtkWidget *dialog,		/* The debugger dialog box */
   *disassembly,				/* The actual disassembly widget */
   *stack,				/* The stack display */
   *events,				/* The events display */
-  *memory,				/* Memory dump */
+  *memory_box,				/* A box to hold the memory dump */
+  *memory_dump,				/* The actual memory dump */
+  *watches,				/* Watch list */
   *entry;				/* Command entry */
 
 static GtkListStore *breakpoints_model, *disassembly_model, *stack_model,
-  *events_model;
+  *events_model, *watches_model;
 
 static GtkAdjustment *disassembly_scrollbar_adjustment;
 
@@ -213,6 +229,7 @@ const gchar debugger_menu[] =
 "    <menuitem name='Stack' action='VIEW_STACK'/>"
 "    <menuitem name='Events' action='VIEW_EVENTS'/>"
 "    <menuitem name='Memory' action='VIEW_MEMORY'/>"
+"    <menuitem name='Watches' action='VIEW_WATCHES'/>"
 "  </menu>"
 "</menubar>";
 
@@ -232,7 +249,7 @@ static GtkToggleActionEntry menu_toggles[] = {
   { "VIEW_STACK", NULL, "_Stack", NULL, NULL, G_CALLBACK( toggle_display_stack ), TRUE },
   { "VIEW_EVENTS", NULL, "_Events", NULL, NULL, G_CALLBACK( toggle_display_events ), TRUE },
   { "VIEW_MEMORY", NULL, "_Memory", NULL, NULL, G_CALLBACK( toggle_display_memory ), TRUE },
-
+  { "VIEW_WATCHES", NULL, "_Watches", NULL, NULL, G_CALLBACK( toggle_display_watches ), TRUE },
 };
 
 static const char*
@@ -277,6 +294,11 @@ ui_breakpoints_updated( void )
   /* TODO: Refresh debugger list here */
 }
 
+void
+ui_watches_updated( void )
+{
+}
+
 static int
 hide_hidden_panes( void )
 {
@@ -313,7 +335,7 @@ get_pane_menu_item( debugger_pane pane )
   case DEBUGGER_PANE_STACK: path = "/View/Stack"; break;
   case DEBUGGER_PANE_EVENTS: path = "/View/Events"; break;
   case DEBUGGER_PANE_MEMORY: path = "/View/Memory"; break;
-
+  case DEBUGGER_PANE_WATCHES: path = "/View/Watches"; break;
   case DEBUGGER_PANE_END: break;
   }
 
@@ -345,7 +367,8 @@ get_pane( debugger_pane pane )
   case DEBUGGER_PANE_DISASSEMBLY: return disassembly_box;
   case DEBUGGER_PANE_STACK: return stack;
   case DEBUGGER_PANE_EVENTS: return events;
-  case DEBUGGER_PANE_MEMORY: return memory;
+  case DEBUGGER_PANE_MEMORY: return memory_box;
+  case DEBUGGER_PANE_WATCHES: return watches;
   case DEBUGGER_PANE_END: break;
   }
 
@@ -370,7 +393,7 @@ static int
 create_dialog( void )
 {
   int error;
-  GtkWidget *hbox, *vbox, *hbox2, *content_area;
+  GtkWidget *hbox, *vbox, *hbox2, *hbox3, *content_area;
   GtkAccelGroup *accel_group;
 
   PangoFontDescription *font;
@@ -398,6 +421,10 @@ create_dialog( void )
   hbox2 = gtk_box_new( GTK_ORIENTATION_HORIZONTAL, 5 );
   gtk_box_pack_start( GTK_BOX( vbox ), hbox2, TRUE, TRUE, 0 );
 
+  hbox3 = gtk_box_new( GTK_ORIENTATION_HORIZONTAL, 5 );
+  gtk_box_pack_start( GTK_BOX( content_area ), hbox3, TRUE, TRUE, 5 );
+
+
   /* The main display areas */
   error = create_register_display( GTK_BOX( hbox2 ), font );
   if( error ) return error;
@@ -408,7 +435,8 @@ create_dialog( void )
   create_disassembly( GTK_BOX( hbox ), font );
   create_stack_display( GTK_BOX( hbox ), font );
   create_events( GTK_BOX( hbox ) );
-  create_memory_label( GTK_BOX( content_area ), font);
+  create_memory_label( GTK_BOX( hbox3 ), font);
+  create_watches( GTK_BOX ( hbox3 ), font);
 
   error = create_command_entry( GTK_BOX( content_area ), accel_group );
   if( error ) return error;
@@ -520,6 +548,12 @@ static void
 toggle_display_memory( GtkToggleAction* action, gpointer data GCC_UNUSED )
 {
   toggle_display( action, DEBUGGER_PANE_MEMORY );
+}
+
+static void
+toggle_display_watches( GtkToggleAction* action, gpointer data GCC_UNUSED )
+{
+  toggle_display( action, DEBUGGER_PANE_WATCHES );
 }
 
 static int
@@ -744,24 +778,74 @@ events_activate( GtkTreeView *tree_view, GtkTreePath *path,
 static int
 create_memory_label( GtkBox *parent, PangoFontDescription *font)
 {
-  GtkWidget *hbox;
+  /* An hbox to hold the memory dump */
+  memory_box = gtk_box_new( GTK_ORIENTATION_HORIZONTAL, 5 );
+  gtk_box_pack_start( parent, memory_box, FALSE, FALSE, 5 );
 
-  /* An hbox to hold the command entry widget and the 'evaluate' button */
-  hbox = gtk_box_new( GTK_ORIENTATION_HORIZONTAL, 5 );
-  gtk_box_pack_start( parent, hbox, FALSE, FALSE, 0 );
+  GtkWidget *frame = gtk_frame_new( "Memory Dump" );
+  gtk_box_pack_start( GTK_BOX( memory_box ), frame, FALSE, FALSE, 5 );
 
-  /* The command entry widget */
-  memory = gtk_label_new(NULL);
+  /* The memory dump widget */
+  memory_dump = gtk_label_new(NULL);
 
-  //g_object_set( G_OBJECT(memory), "font-desc", font, "height", 18, NULL );
-  gtk_widget_modify_font(memory, font);
-  gtk_widget_set_halign(memory, GTK_ALIGN_START);
-  gtk_box_pack_start( GTK_BOX( hbox ), memory, TRUE, TRUE, 0 );
+  gtk_widget_modify_font(memory_dump, font);
+  gtk_widget_set_halign(memory_dump, GTK_ALIGN_START);
+  gtk_container_add( GTK_CONTAINER(frame), memory_dump);
 
   memory_address = PC;
 
   return 0;
 }
+
+static void watch_tree_activated (GtkTreeView *tree_view, GtkTreePath *path, GtkTreeViewColumn *column, gpointer user_data)
+{
+  GtkTreeModel *model = gtk_tree_view_get_model(tree_view);
+  GtkTreeIter iter;
+
+  if(gtk_tree_model_get_iter(model, &iter, path))
+  {
+    gint id;
+    gtk_tree_model_get(model, &iter, 0, &id, -1);
+    //printf("Watch Id : %d\n", id);
+    debugger_watch *watch = get_watch_by_id(id);
+    if(watch)
+      ui_debugger_memory( watch->address, 8 );
+  }
+
+}
+
+static int
+create_watches( GtkBox *parent, PangoFontDescription *font)
+{
+  size_t i;
+
+  static const gchar *const titles[] =
+    { "ID", "Watch", "Value" };
+
+  watches_model = gtk_list_store_new( WATCHES_COLUMN_COUNT, G_TYPE_INT, G_TYPE_STRING, G_TYPE_STRING );
+
+  /* Create a scrolled window to hold the treeview */
+  GtkWidget *scrolled_window = gtk_scrolled_window_new(NULL, NULL);
+  /* Only want a vertical scrollbar. */
+  gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled_window),
+                                   GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+
+  watches = gtk_tree_view_new_with_model( GTK_TREE_MODEL( watches_model ) );
+  for( i = 0; i < WATCHES_COLUMN_COUNT; i++ ) {
+    GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+    GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes( titles[i], renderer, "text", i, NULL );
+    gtk_tree_view_append_column( GTK_TREE_VIEW( watches ), column );
+  }
+
+  gtk_container_add(GTK_CONTAINER(scrolled_window), watches);
+  gtk_box_pack_start( parent, scrolled_window, TRUE, TRUE, 0 );
+
+  gtk_tree_view_set_activate_on_single_click( GTK_TREE_VIEW( watches ), FALSE);
+  g_signal_connect( GTK_TREE_VIEW( watches ), "row-activated", G_CALLBACK(watch_tree_activated), NULL);
+
+  return 0;
+}
+
 
 static int
 create_command_entry( GtkBox *parent, GtkAccelGroup *accel_group )
@@ -928,6 +1012,7 @@ ui_debugger_update( void )
 
   update_memory_map();
   update_breakpoints();
+  update_watches();
   update_disassembly();
   update_memory();
 
@@ -1017,6 +1102,48 @@ update_memory_map( void )
   }
 
   gtk_widget_show_all( GTK_WIDGET( memory_map_table ) );
+}
+
+static void
+update_watches( void )
+{
+  GSList *ptr;
+
+  gtk_list_store_clear( watches_model );
+
+  for( ptr = debugger_watches; ptr; ptr = ptr->next )
+  {
+    debugger_watch *watch = ptr->data;
+    GtkTreeIter it;
+    gchar value_buffer[40], address_buffer[40];
+
+    switch( watch->type )
+    {
+      case DEBUGGER_WATCH_TYPE_U8:
+        snprintf(value_buffer, 40, format_8_bit(), readbyte_internal(watch->address));
+        break;
+      case DEBUGGER_WATCH_TYPE_U16:
+        {
+        libspectrum_word value = readbyte_internal(watch->address + 1 ) << 8 |
+          readbyte_internal(watch->address);
+
+        snprintf(value_buffer, 40, format_16_bit(), value);
+        }
+        break;
+      default:
+    }
+
+    snprintf(address_buffer, 40, format_16_bit(), watch->address);
+
+    gtk_list_store_append( watches_model, &it );
+    gtk_list_store_set(
+      watches_model, &it,
+      WATCHES_COLUMN_ID, watch->id,
+      WATCHES_COLUMN_ADDRESS, watch->name ? watch->name : address_buffer,
+      WATCHES_COLUMN_VALUE, value_buffer,
+      -1
+    );
+  }
 }
 
 static void
@@ -1182,11 +1309,11 @@ update_memory()
     }
     snprintf(line, MEMORY_LINE_LENGTH, format_16_bit(), address_start);
     line = line + strlen(line);
-    snprintf(line, MEMORY_LINE_LENGTH, " %s %s\n", hexcodes, characters);
+    snprintf(line, MEMORY_LINE_LENGTH, " %s %s \n", hexcodes, characters);
     line = line + strlen(line);
   }
 
-  gtk_label_set_text(GTK_LABEL(memory), (const gchar *)&memory_lines);
+  gtk_label_set_text(GTK_LABEL(memory_dump), (const gchar *)&memory_lines);
   //printf("0x%04x: %s %s\n", address, hexcodes, characters);
 }
 

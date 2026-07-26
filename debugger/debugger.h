@@ -34,6 +34,7 @@
 #include "libspectrum.h"
 
 #include "breakpoint.h"
+#include "watch.h"
 
 /* The current state of the debugger */
 enum debugger_mode_t

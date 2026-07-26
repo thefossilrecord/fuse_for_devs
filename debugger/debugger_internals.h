@@ -128,4 +128,9 @@ void debugger_sjasmplus_sym_init( void );
 void debugger_parse_lines_from_buffer(char *buffer, parse_function function, void *parameters);
 int debugger_load_symbol_file_to_buffer(char *path, char **symbol_buffer);
 
+/* Watch list */
+int debugger_watch_add( libspectrum_dword value, const char *watch_type);
+int debugger_watch_remove_all( void );
+extern char *last_variable_expression_name;
+
 #endif				/* #ifndef FUSE_DEBUGGER_INTERNALS_H */

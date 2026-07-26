@@ -31,7 +31,8 @@ fuse_SOURCES += \
                 debugger/expression.c \
                 debugger/sjasmplus.c \
                 debugger/system_variable.c \
-                debugger/variable.c
+                debugger/variable.c \
+                debugger/watch.c
 
 debugger/commandl.c: debugger/commandy.c
 debugger/commandy.h: debugger/commandy.c

@@ -98,6 +98,7 @@
 %token		 SET
 %token		 STEP
 %token		 TIME
+%token		 WATCH
 %token		 WRITE
 
 %token <integer> NUMBER
@@ -117,6 +118,7 @@
 %type  <integer> numberorpc
 %type  <integer> number
 %type  <integer> optionalnumber
+%type  <string>  optionalstring
 %type  <exp>     optionalcondition
 
 %type  <exp>     expressionornull
@@ -196,6 +198,7 @@ command:   BASE number { debugger_output_base = $2; }
 	 | SET VARIABLE number { debugger_variable_set( $2, $3 ); }
          | SET STRING ':' STRING number { debugger_system_variable_set( $2, $4, $5 ); }
 	 | STEP	    { debugger_step(); }
+	 | WATCH number optionalstring{ debugger_watch_add( $2, $3 ); }
 ;
 
 breakpointlife:   BREAK  { $$ = DEBUGGER_BREAKPOINT_LIFE_PERMANENT; }
@@ -238,6 +241,10 @@ numberorpc:   /* empty */ { $$ = PC; }
 
 optionalnumber:   /* empty */ { $$ = -1; }
 		   | NUMBER  { $$ = $1; }
+;
+
+optionalstring:   /* empty */ { $$ = NULL; }
+		   | STRING  { $$ = $1; }
 ;
 
 expressionornull:   /* empty */ { $$ = NULL; }

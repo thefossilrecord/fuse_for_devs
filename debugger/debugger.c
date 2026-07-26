@@ -73,6 +73,7 @@ void
 debugger_reset( void )
 {
   debugger_breakpoint_remove_all();
+  debugger_watch_remove_all();
   debugger_mode = DEBUGGER_MODE_INACTIVE;
 }
 
@@ -80,6 +81,7 @@ static void
 debugger_end( void )
 {
   debugger_breakpoint_remove_all();
+  debugger_watch_remove_all();
   debugger_variable_end();
   debugger_system_variable_end();
   debugger_event_end();

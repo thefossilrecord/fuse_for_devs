@@ -121,6 +121,8 @@ unaryop_precedence( int operation )
   }
 }
 
+char *last_variable_expression_name = NULL;
+
 static enum precedence_t
 binaryop_precedence( int operation )
 {
@@ -338,8 +340,13 @@ debugger_expression_evaluate( debugger_expression *exp )
     return debugger_system_variable_get( exp->types.system_variable );
 
   case DEBUGGER_EXPRESSION_TYPE_VARIABLE:
-    return debugger_variable_get( exp->types.variable );
-
+    {
+    libspectrum_dword result = debugger_variable_get( exp->types.variable );
+    last_variable_expression_name = NULL;
+    if(result)
+      last_variable_expression_name = exp->types.variable;
+    return result;
+    }
   }
 
   ui_error( UI_ERROR_ERROR, "unknown expression type %d", exp->type );

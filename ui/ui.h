@@ -75,6 +75,7 @@ int ui_debugger_update( void );
 int ui_debugger_disassemble( libspectrum_word address );
 int ui_debugger_memory( libspectrum_word address, libspectrum_word bank );
 void ui_breakpoints_updated( void );
+void ui_watches_updated( void );
 
 /* Reset anything in the UI which needs to be reset on machine selection */
 int ui_widgets_reset( void );

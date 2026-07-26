@@ -70,6 +70,7 @@ typedef enum debugger_pane {
   DEBUGGER_PANE_STACK,
   DEBUGGER_PANE_EVENTS,
   DEBUGGER_PANE_MEMORY,
+  DEBUGGER_PANE_WATCHES,
 
   DEBUGGER_PANE_END		/* End marker */
 } debugger_pane;
@@ -83,12 +84,14 @@ static void toggle_display( debugger_pane pane, UINT menu_item_id );
 static int create_register_display( HFONT font );
 /* int create_memory_map( void ); this function is handled by rc */
 static int create_breakpoints( void );
+static int create_watches( void );
 static int create_disassembly( HFONT font );
 static int create_stack_display( HFONT font );
 static void stack_click( LPNMITEMACTIVATE lpnmitem );
 static int create_events( void );
 static int create_memory( HFONT font );
 static void events_click( LPNMITEMACTIVATE lpnmitem );
+static void watch_click( LPNMITEMACTIVATE lpnmitem );
 /* int create_command_entry( void ); this function is handled by rc */
 /* int create_buttons( void ); this function is handled by rc */
 
@@ -98,6 +101,7 @@ static void update_breakpoints( void );
 static void update_disassembly( void );
 static void update_events( void );
 static void update_memory( void );
+static void update_watches( void );
 static void add_event( gpointer data, gpointer user_data GCC_UNUSED );
 static int deactivate_debugger( void );
 
@@ -179,6 +183,12 @@ ui_breakpoints_updated( void )
   /* TODO: Refresh debugger list here */
 }
 
+void
+ui_watches_updated( void )
+{
+  /* TODO: Refresh debugger list here */
+}
+
 static int
 hide_hidden_panes( void )
 {
@@ -218,7 +228,8 @@ get_pane_menu_item( debugger_pane pane )
   case DEBUGGER_PANE_STACK: menu_item_id = IDM_DBG_STACK; break;
   case DEBUGGER_PANE_EVENTS: menu_item_id = IDM_DBG_EVENTS; break;
   case DEBUGGER_PANE_MEMORY: menu_item_id = IDM_DBG_MEMORY; break;
-
+  case DEBUGGER_PANE_WATCHES: menu_item_id = IDM_DBG_WATCH; break;
+	  
   case DEBUGGER_PANE_END: break;
   }
 
@@ -277,7 +288,11 @@ show_hide_pane( debugger_pane pane, int show )
     case DEBUGGER_PANE_MEMORY:
       ShowWindow( GetDlgItem( fuse_hDBGWnd, IDC_DBG_STATIC_MEM ), show );
       return TRUE;
-  
+
+    case DEBUGGER_PANE_WATCHES:
+      ShowWindow( GetDlgItem( fuse_hDBGWnd, IDC_DBG_LV_WATCH), show );
+      return TRUE;
+    
     case DEBUGGER_PANE_END: break;
   }
 
@@ -384,6 +399,8 @@ create_dialog( void )
 
   error = create_breakpoints(); if( error ) return error;
 
+  error = create_watches(); if( error ) return error;
+
   error = create_disassembly( font ); if( error ) return error;
 
   error = create_memory( font ); if ( error ) return error;
@@ -474,6 +491,37 @@ create_breakpoints( void )
     lvc.cx = _tcslen( breakpoint_titles[i] ) * 8 + 10;
     lvc.pszText = (LPTSTR)breakpoint_titles[i];
     SendDlgItemMessage( fuse_hDBGWnd, IDC_DBG_LV_BPS, LVM_INSERTCOLUMN, i,
+                        ( LPARAM ) &lvc );
+  }
+  
+  return 0;
+}
+
+static int
+create_watches( void )
+{
+  size_t i;
+
+  LPCTSTR watch_titles[] = { _T( "ID" ), _T( "Watch" ), _T( "Value" ) };
+  /* set extended listview style to select full row, when an item is selected */
+  DWORD lv_ext_style;
+  lv_ext_style = SendDlgItemMessage( fuse_hDBGWnd, IDC_DBG_LV_WATCH,
+                                     LVM_GETEXTENDEDLISTVIEWSTYLE, 0, 0 ); 
+  lv_ext_style |= LVS_EX_FULLROWSELECT;
+  SendDlgItemMessage( fuse_hDBGWnd, IDC_DBG_LV_WATCH,
+                      LVM_SETEXTENDEDLISTVIEWSTYLE, 0, lv_ext_style ); 
+
+  /* create columns */
+  LVCOLUMN lvc;
+  lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT ;
+  lvc.fmt = LVCFMT_LEFT;
+
+  for( i = 0; i < 3; i++ ) {
+    if( i != 0 )
+      lvc.mask |= LVCF_SUBITEM;
+    lvc.cx = _tcslen( watch_titles[i] ) * 8 + 10;
+    lvc.pszText = (LPTSTR)watch_titles[i];
+    SendDlgItemMessage( fuse_hDBGWnd, IDC_DBG_LV_WATCH, LVM_INSERTCOLUMN, i,
                         ( LPARAM ) &lvc );
   }
   
@@ -584,6 +632,14 @@ create_stack_display( HFONT font )
   ListView_SetColumnWidth( hwnd_list, 1, LVSCW_AUTOSIZE_USEHEADER );
 
   return 0;
+}
+
+static void
+watch_click( LPNMITEMACTIVATE lpnmitem )
+{
+  debugger_watch *watch = get_watch_by_id(lpnmitem->iItem);
+  if(watch)
+    ui_debugger_memory( watch->address, 8 );
 }
 
 static void
@@ -811,6 +867,7 @@ ui_debugger_update( void )
 
   update_memory_map();
   update_breakpoints();
+  update_watches();
   update_disassembly();
   update_memory();
 
@@ -1000,6 +1057,72 @@ update_breakpoints( void )
 }
 
 static void
+update_watches( void )
+{
+  /* FIXME: review this function for unicode compatibility */
+  TCHAR buffer[ 256 ],
+    *watch_text[3] = { &buffer[  0], &buffer[ 40], &buffer[80] };	
+  GSList *ptr;
+
+  HWND watch_listview = GetDlgItem(fuse_hDBGWnd, IDC_DBG_LV_WATCH);
+  LV_ITEM lvi = {0};
+  lvi.mask = LVIF_TEXT|LVIF_PARAM;
+  int index = 0;
+
+  /* Reset the watch list */
+  SendMessage( watch_listview, LVM_DELETEALLITEMS, 0, 0 );
+
+  for( ptr = debugger_watches; ptr; ptr = ptr->next )
+  {
+
+    debugger_watch *watch = ptr->data;
+
+    switch( watch->type )
+    {
+      case DEBUGGER_WATCH_TYPE_U8:
+        snprintf(watch_text[2], 40, format_8_bit(), readbyte_internal(watch->address));
+        break;
+      case DEBUGGER_WATCH_TYPE_U16:
+        {
+        libspectrum_word value = readbyte_internal(watch->address + 1 ) << 8 |
+          readbyte_internal(watch->address);
+
+        snprintf(watch_text[2], 40, format_16_bit(), value);
+        }
+        break;
+      default:
+    }
+
+    snprintf(watch_text[0], 40, "%d", watch->id);
+    if(watch->name)
+      watch_text[1] = watch->name;
+    else
+      snprintf(watch_text[1], 40, format_16_bit(), watch->address);
+
+    lvi.iSubItem = 0;
+    lvi.iItem = index;
+    lvi.lParam = (LPARAM)ptr->data;
+
+    for(int sub_items = 0; sub_items < 3; sub_items++)
+    {
+      lvi.pszText = watch_text[sub_items];
+      if(!sub_items)
+        {
+        SendMessage( watch_listview, LVM_INSERTITEM, 0, ( LPARAM ) &lvi );
+	lvi.mask &= ~LVIF_PARAM;
+	lvi.lParam = 0;
+	}
+      else
+        SendMessage( watch_listview, LVM_SETITEM, 0, ( LPARAM ) &lvi );    
+
+      lvi.iSubItem++;
+    }
+    index++;
+  }
+  SendMessage( watch_listview, LVM_SETCOLUMNWIDTH, 1, LVSCW_AUTOSIZE);
+}
+
+static void
 update_disassembly( void )
 {
   size_t i, length; libspectrum_word address;
@@ -1185,6 +1308,8 @@ evaluate_command( void )
     reset_auto_complete(TRUE);
     return;
   }
+  else
+    reset_auto_complete(FALSE);
 
   buffer = get_command_text();
   if(!buffer)
@@ -1290,6 +1415,9 @@ win32ui_debugger_proc( HWND hWnd GCC_UNUSED, UINT msg,
         case IDM_DBG_MEMORY:
           toggle_display( DEBUGGER_PANE_MEMORY, IDM_DBG_MEMORY );
           return 0;
+        case IDM_DBG_WATCH:
+          toggle_display( DEBUGGER_PANE_WATCHES, IDM_DBG_WATCH );
+          return 0;
       }
       break;
 
@@ -1309,6 +1437,9 @@ win32ui_debugger_proc( HWND hWnd GCC_UNUSED, UINT msg,
             case IDC_DBG_LV_STACK:
               stack_click( ( LPNMITEMACTIVATE ) lParam );
               return 0;
+	    case IDC_DBG_LV_WATCH:
+	      watch_click( ( LPNMITEMACTIVATE ) lParam );
+	      return 0;
           }
       }
       break;
