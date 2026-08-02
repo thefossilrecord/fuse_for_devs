@@ -1,10 +1,10 @@
 # fuse_for_devs
 
-Branch of fuse 1.9.0 with experimental features and changes to improve the debugger on Linux/GTK and Windows for people using it to develop code with.
+Branch of fuse 1.9.1 with experimental features and changes to improve the debugger on Linux/GTK and Windows for people using it to develop code with.
 
 ## Requirements:
 
-- libspectrum 1.6.2 or newer. https://fuse-emulator.sourceforge.net/libspectrum.php You'll have this already if you've built Fuse from source before. Refer to the README file for compilation instructions. You may need to run 'sudo ldconfig' after installation.
+- libspectrum 1.6.3 or newer. https://fuse-emulator.sourceforge.net/libspectrum.php You'll have this already if you've built Fuse from source before. Refer to the README file for compilation instructions. You may need to run 'sudo ldconfig' after installation.
 
 ## Building:
 
@@ -29,13 +29,13 @@ Use the fuse_for_devs source package instead of the official fuse source.
 ## Added features, changes and fixes:
 
 - Added menu accelerators for Debugger (Escape), Hard Reset (Ctrl + Shift F5) and NMI (Shift + F5).
-- Restored processing of $xxxx format hexadecimal numbers in the GTK debugger command entry box.
+- Restored processing of $xxxx format hexadecimal numbers in the debugger command entry box.
 - Added a command history to the debugger (currently 32 entries). Cursor up and down moves you through the previously entered commands. Text entry field is now also cleared when a command is entered.
 - Added --sym-file <path to .sym file> command line option to load in a .sym file created by SjASMPlus. `fuse --sym-file bin/main.sym bin/main.tap`
-- Create debugger $ variables from the EQUs defined in the sym file, so you can do things like `t $\_main\_entry` to put a temporary breakpoint on the label `\_main\_entry`.
-- Added m/mem/memory command to dump memory and a memory dump window to the GTK debugger - `m <address> <bank>`. `<bank>` is an optional value to specify the memory bank on 128k machines (0 - 7 for a specific bank or 8 for the active bank).
+- Create debugger $ variables from the EQUs defined in the sym file, so you can do things like `t $_main_entry` to put a temporary breakpoint on the label `_main_entry`.
+- Added m/mem/memory command to dump memory and a memory dump window to the debugger - `m <address> <bank>`. `<bank>` is an optional value to specify the memory bank on 128k machines (0 - 7 for a specific bank or 8 for the active bank).
 - Added watch command to debugger which displays the contents of a specified address inside the watch list in the debugger UI - `watch 16384` or `watch $_sjasm_symbol_name`. An optional parameter specifies how to display the data, e.g. `watch 32768 u8` will show the value as an unsigned 8 bit value or `watch 32768 u16` will show it as an unsigned 16 bit value. If this parameter is not set it will default to u8. Double clicking an entry in the watch list will update the memory view window to display the contents of the watched address.
-- Put the focus into the command entry window when entering the GTK debugger.
+- Put the focus into the command entry window when entering the debugger.
 - Added poke command which works as a more memorable alias for `set <address> <value>`. It also supports poking a 16 bit value, so you can do `poke 40000 16384`.
 - Pressing F10 in the debugger text entry will now do a step over.
 - Pressing F11 in the debugger text entry will now do a step into.
