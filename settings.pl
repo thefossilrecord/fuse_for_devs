@@ -168,6 +168,7 @@ static int
 read_config_file( settings_info *settings )
 {
   const char *cfgdir; char path[ PATH_MAX ];
+  settings_info new_settings;
 
   xmlDocPtr doc;
 
@@ -184,18 +185,29 @@ read_config_file( settings_info *settings )
     if( !compat_file_exists( path ) ) return 0;
   }
 
+  memset( &new_settings, 0, sizeof( new_settings ) );
+  settings_copy_internal( &new_settings, settings );
+
   doc = xmlReadFile( path, NULL, 0 );
   if( !doc ) {
-    ui_error( UI_ERROR_ERROR, "error reading config file" );
-    return 1;
+    settings_free( &new_settings );
+    ui_error( UI_ERROR_WARNING,
+              "ignoring unrecognised config file '%s'; using defaults", path );
+    return 0;
   }
 
-  if( parse_xml( doc, settings ) ) {
+  if( parse_xml( doc, &new_settings ) ) {
     xmlFreeDoc( doc );
-    return 1;
+    settings_free( &new_settings );
+    ui_error( UI_ERROR_WARNING,
+              "ignoring unrecognised config file '%s'; using defaults", path );
+    return 0;
   }
 
   xmlFreeDoc( doc );
+
+  settings_copy_internal( settings, &new_settings );
+  settings_free( &new_settings );
 
   return 0;
 }
@@ -334,6 +346,7 @@ read_config_file( settings_info *settings )
 {
   const char *cfgdir; char path[ PATH_MAX ];
   int error;
+  settings_info new_settings;
 
   utils_file file;
 
@@ -350,15 +363,29 @@ read_config_file( settings_info *settings )
     if( !compat_file_exists( path ) ) return 0;
   }
 
+  memset( &new_settings, 0, sizeof( new_settings ) );
+  settings_copy_internal( &new_settings, settings );
+
   error = utils_read_file( path, &file );
   if( error ) {
-    ui_error( UI_ERROR_ERROR, "error reading config file" );
-    return 1;
+    settings_free( &new_settings );
+    ui_error( UI_ERROR_WARNING,
+              "ignoring unrecognised config file '%s'; using defaults", path );
+    return 0;
   }
 
-  if( parse_ini( &file, settings ) ) { utils_close_file( &file ); return 1; }
+  if( parse_ini( &file, &new_settings ) ) {
+    utils_close_file( &file );
+    settings_free( &new_settings );
+    ui_error( UI_ERROR_WARNING,
+              "ignoring unrecognised config file '%s'; using defaults", path );
+    return 0;
+  }
 
   utils_close_file( &file );
+
+  settings_copy_internal( settings, &new_settings );
+  settings_free( &new_settings );
 
   return 0;
 }
